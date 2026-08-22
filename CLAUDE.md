@@ -1,68 +1,74 @@
-# Exam Nigahban — Claude Code Instructions
+# EXAM NIGAHBAN — CLAUDE CODE DEVELOPMENT GUIDELINES
 
-## 1. Project
+> **Authoritative development specification for Claude Code**
+>
+> Project: Exam Nigahban
+> Purpose: AI-assisted online examination monitoring system
+> Target: AI National / Alibaba Cloud AI Hackathon Pakistan 2026
+> Development Stage: Hackathon MVP / Production-quality prototype
+> Last Updated: August 2026
 
-Exam Nigahban is an AI-assisted online examination monitoring and evidence-generation platform.
+---
 
-The system supports:
+# 1. PROJECT IDENTITY
 
-- Secure student examination
-- Administrator-managed accounts
-- Online exams
-- Camera permission and system readiness checks
-- AI-assisted face and head-pose monitoring
-- Mobile phone detection
-- Temporal monitoring rules
-- Evidence generation
+## 1.1 Project Name
+
+Exam Nigahban
+
+## 1.2 Project Purpose
+
+Exam Nigahban is an AI-assisted online examination monitoring system designed to help administrators monitor examination sessions and generate reviewable evidence of potentially suspicious activities.
+
+The system combines:
+
+- Secure online examinations
+- Student authentication
+- Mandatory camera verification
+- Real-time AI-assisted monitoring
+- Head-pose analysis
+- Face presence analysis
+- Multiple-face detection
+- Mobile-phone detection
+- Temporal activity rules
+- Automatic evidence capture
 - Real-time administrator alerts
-- Human review of monitoring evidence
-- Administrative actions and audit history
+- Human-admin review and decision making
+- Examination management
+- Student management
+- Evidence and audit management
 
-The system must remain professional, secure, maintainable, and suitable for hackathon demonstration.
+## 1.3 Core Principle
 
----
+Exam Nigahban is an AI-assisted monitoring and evidence-generation system.
 
-## 2. Engineering Principle
+The AI must NOT independently declare that a student cheated.
 
-Build the system incrementally.
+The system detects potentially suspicious monitoring events, generates evidence, and presents that evidence to an authorized administrator.
 
-Before changing code:
+Final decisions always remain with the human administrator.
 
-1. Read the relevant requirements.
-2. Inspect the existing implementation.
-3. Understand dependencies.
-4. Make the smallest appropriate change.
-5. Test the change.
-6. Review the Git diff.
-7. Report what was changed and verified.
+Never implement wording, logic, UI, or database states that incorrectly imply:
 
-Do not make unrelated changes.
+"AI confirmed cheating."
 
-Do not rewrite working code without a clear reason.
+Preferred terminology:
 
-Do not introduce unnecessary architecture.
-
----
-
-## 3. Source of Truth
-
-Use the following priority:
-
-1. Approved SRS
-2. PROJECT_SPEC.md
-3. CLAUDE.md
-4. TASKS.md
-5. Existing implementation
-
-If requirements conflict with the existing implementation, follow the approved requirements.
-
-If an architectural decision is unclear, do not silently invent a new architecture.
+- Monitoring Alert
+- Suspicious Activity
+- Evidence Generated
+- Evidence Pending Review
+- Confirmed by Admin
+- Ignored by Admin
+- Admin Review
 
 ---
 
-## 4. Approved Technology Stack
+# 2. AUTHORITATIVE TECHNOLOGY STACK
 
-### Frontend
+The following technology choices are mandatory for the MVP unless explicitly changed by the project owner.
+
+## 2.1 Frontend
 
 - React
 - Vite
@@ -72,265 +78,315 @@ If an architectural decision is unclear, do not silently invent a new architectu
 - Axios
 - React Router
 - Native WebSocket API
-- Browser MediaDevices API
-
-### AI / Computer Vision
-
+- Browser MediaDevices / getUserMedia()
 - MediaPipe Face Landmarker
-- Ultralytics YOLO
-- Browser-side processing where practical
-- Mobile phone detection
 
-### Backend
+## 2.2 Backend
 
-- Python
+- Python 3.12+
 - FastAPI
 - Pydantic
+- Pydantic Settings
 - SQLAlchemy
+- PyMySQL
+- MySQL
 - WebSocket
 
-### Database
+## 2.3 AI
 
-- MySQL
+### Face / Head Monitoring
 
-### Development
+Use:
 
-- Visual Studio Code
-- Git
-- GitHub
-- Claude Code
-- Postman
-- Google Chrome
+- MediaPipe Face Landmarker
+
+For:
+
+- Face presence
+- Head orientation
+- Head left
+- Head right
+- Head up
+- Head down
+- Looking away
+
+### Object Detection
+
+Use:
+
+- YOLO
+
+For the MVP, object detection is restricted to:
+
+MOBILE PHONE / CELL PHONE ONLY.
+
+Do NOT implement detection requirements for:
+
+- Smartwatch
+- Digital camera
+- Laptop
+- Tablet
+- Other prohibited devices
+
+Only the mobile-phone detection event is required.
 
 ---
 
-## 5. Architecture
+# 3. SYSTEM ARCHITECTURE
 
-Use a modular monolithic architecture for the MVP.
-
-High-level flow:
+The overall architecture is:
 
 Student Browser
-        |
-        v
-React Frontend
-        |
-        +--> Camera / Browser APIs
-        |
-        +--> MediaPipe Face Landmarker
-        |
-        +--> YOLO Mobile Phone Detection
-        |
-        v
-FastAPI Backend
-        |
-        +--> Authentication
-        +--> Exam Services
-        +--> Monitoring Services
-        +--> Evidence Services
-        +--> WebSocket Services
-        |
-        v
-MySQL
+    |
+    v
+React + Vite Frontend
+    |
+    +----------------------+
+    |                      |
+    v                      v
+Local AI Processing      FastAPI API
+(MediaPipe + YOLO)          |
+                             |
+                    +--------+--------+
+                    |                 |
+                    v                 v
+                  MySQL           WebSocket
+                    |                 |
+                    v                 v
+              Evidence/Data      Admin Dashboard
+                    |
+                    v
+             Human Admin Review
 
-Admin Dashboard receives monitoring events and evidence through the backend.
+## 3.1 Examination Flow
 
-Do not stream every webcam frame to the backend unnecessarily.
-
-Process monitoring locally where practical and send only required events, evidence, and metadata.
-
----
-
-## 6. Frontend Rules
-
-Use React component-based architecture.
-
-Prefer:
-
-- Reusable components
-- Small focused components
-- Clear page boundaries
-- Reusable hooks when useful
-- Centralized API configuration
-- Consistent error handling
-- Loading states
-- Empty states
-- Responsive Bootstrap layouts
-- Accessible controls
-
-Do not introduce:
-
-- Redux
-- Tailwind CSS
-- Next.js
-- jQuery
-- Vue
-- Angular
-
-unless explicitly approved.
-
-Keep dependencies minimal.
-
----
-
-## 7. Backend Rules
-
-Separate backend responsibilities into appropriate modules such as:
-
-- API routes
-- Services
-- Schemas
-- Database models
-- Authentication
-- WebSocket handling
-
-Do not place large business-logic implementations directly inside route handlers.
-
-Validate all external input.
-
-Never expose:
-
-- Passwords
-- Database credentials
-- API keys
-- Internal stack traces
-- Secret tokens
-
-to clients.
+Student Login
+    |
+    v
+Terms & Conditions
+    |
+    v
+Camera Permission
+    |
+    v
+System / Camera Check
+    |
+    v
+Exam Ready
+    |
+    v
+Start Examination
+    |
+    v
+Real-Time AI Monitoring
+    |
+    +-----------------------------+
+    |                             |
+    v                             v
+Head/Face Analysis        Mobile Phone Detection
+    |                             |
+    +-------------+---------------+
+                  |
+                  v
+           Temporal Rule Engine
+                  |
+                  v
+            Monitoring Event
+                  |
+                  v
+            Evidence Capture
+                  |
+                  v
+             FastAPI Backend
+                  |
+           +------+------+
+           |             |
+           v             v
+         MySQL       WebSocket
+                         |
+                         v
+                 Admin Dashboard
+                         |
+                         v
+                    Human Review
 
 ---
 
-## 8. Database
+# 4. NON-NEGOTIABLE REQUIREMENTS
 
-Use MySQL.
+The following rules MUST NOT be violated without explicit approval from the project owner.
 
-Core entities include:
+## 4.1 Authentication
 
-- Users
-- Students
-- Exams
-- Questions
-- Exam Sessions
-- Student Answers
-- Monitoring Rules
-- Monitoring Events
-- Evidence
-- Administrative Actions
-- System Logs
-
-Use appropriate:
-
-- Primary keys
-- Foreign keys
-- Constraints
-- Timestamps
-- Indexes
-
-Passwords must never be stored in plaintext.
-
-Secrets must be supplied through environment variables.
-
----
-
-## 9. Authentication
+- Students cannot self-register.
+- Only authorized administrators can create user accounts.
+- Admin can create Student accounts.
+- Admin can create other Admin accounts.
+- Passwords must never be stored in plaintext.
+- Passwords must be securely hashed.
+- Authentication must use secure sessions/tokens.
+- Role-based authorization is mandatory.
 
 Roles:
 
 - ADMIN
 - STUDENT
 
-Only administrators can create accounts.
+## 4.2 Camera Permission
 
-Students must not have public self-registration.
+Camera permission is mandatory for examination participation.
 
-Authentication must use secure password hashing.
+The student cannot start an examination unless:
 
-Every protected endpoint must verify authentication and authorization.
+1. Camera permission is granted.
+2. Camera is accessible.
+3. Required pre-exam checks pass.
 
-Never trust role information supplied directly by the browser.
+Do not provide a "skip camera" option.
 
----
+## 4.3 AI Monitoring
 
-## 10. AI Monitoring
+AI monitoring must operate during the active examination session.
 
-Exam Nigahban is an AI-assisted monitoring and evidence-generation system.
+Required monitoring:
 
-It is NOT an autonomous cheating-decision system.
+- Head left
+- Head right
+- Head up
+- Head down
+- Looking away
+- Face absent
+- Multiple faces
+- Mobile phone
 
-AI identifies predefined observable conditions.
+## 4.4 Mobile Phone Detection
 
-The administrator makes the final decision.
+Mobile phone detection is the ONLY required prohibited-object detection.
 
-Never use:
+Do not add unnecessary object categories.
 
-- Cheating Confirmed
-- Student Is Cheating
-- Guilty
+The system should:
 
-Prefer:
+1. Detect a mobile phone.
+2. Apply a confidence threshold.
+3. Require approximately one second of persistence.
+4. Generate a monitoring event.
+5. Capture evidence.
+6. Send an alert to the administrator.
 
-- Monitoring Alert
-- Suspicious Activity Detected
-- Evidence Generated
-- Pending Review
-- Confirmed
-- Dismissed
+Thresholds must remain configurable.
 
----
+## 4.5 Temporal Detection
 
-## 11. Monitoring Scope
+Do not generate a serious monitoring event based on a single noisy frame.
 
-### Head / Gaze
-
-- HEAD_LEFT
-- HEAD_RIGHT
-- HEAD_UP
-- HEAD_DOWN
-- LOOKING_AWAY
-
-### Face
-
-- FACE_ABSENT
-- MULTIPLE_FACES
-
-### Object Detection
-
-Only:
-
-- MOBILE_PHONE
-
-Do not add smartwatch, camera, laptop, or other prohibited-object detection unless the approved specification is changed.
-
----
-
-## 12. Temporal Monitoring
-
-Avoid triggering important evidence from a single noisy frame.
-
-Use:
-
-- Confidence thresholds
-- Duration thresholds
-- Occurrence counts
-- Temporal persistence
-- Smoothing where appropriate
+Use temporal logic.
 
 Baseline rules:
 
-- Head movement: >3 seconds and repeated occurrences
-- Face absent: approximately 5 seconds
-- Multiple faces: approximately 2 seconds
-- Mobile phone: approximately 1 second with high confidence
+| Activity | Minimum Duration | Occurrences | Confidence | Severity |
+|---|---:|---:|---:|---|
+| HEAD_LEFT | >3 sec | 3 | >=0.75 | Medium |
+| HEAD_RIGHT | >3 sec | 3 | >=0.75 | Medium |
+| HEAD_UP | >3 sec | 3 | >=0.75 | Medium |
+| HEAD_DOWN | >3 sec | 3 | >=0.75 | Medium |
+| LOOKING_AWAY | >3 sec | 3 | >=0.75 | Medium |
+| FACE_ABSENT | >5 sec | 1 | Configurable | High |
+| MULTIPLE_FACES | >2 sec | 1 | Configurable | High |
+| MOBILE_PHONE | approximately 1 sec | 1 | >=0.80 | High |
 
-Monitoring thresholds should be configurable rather than duplicated throughout the codebase.
+These values are baseline MVP configuration.
+
+Do not hard-code them throughout the application.
+
+Store monitoring thresholds in configuration/database structures where appropriate.
 
 ---
 
-## 13. Evidence
+# 5. AI PROCESSING RULES
 
-Evidence should contain, where applicable:
+## 5.1 Local Processing
 
-- Evidence ID
+Where practical, AI inference should occur locally in the student's browser.
+
+Do NOT continuously stream raw webcam video to the backend.
+
+Preferred flow:
+
+Webcam
+    |
+    v
+Browser
+    |
+    +--> MediaPipe
+    |
+    +--> YOLO
+    |
+    v
+Monitoring Rules
+    |
+    v
+Only suspicious events/evidence
+    |
+    v
+Backend
+
+## 5.2 Backend Responsibilities
+
+The backend should receive:
+
+- Monitoring events
+- Confidence
+- Duration
+- Activity type
+- Session ID
+- Student ID
+- Timestamp
+- Evidence image when required
+- Relevant metadata
+
+The backend should NOT receive unnecessary continuous webcam frames.
+
+## 5.3 Head Pose
+
+Use MediaPipe facial landmarks and transformation information.
+
+Pipeline:
+
+Webcam
+    |
+    v
+MediaPipe Face Landmarker
+    |
+    v
+Face Detection
+    |
+    v
+Facial Landmarks / Transformation
+    |
+    v
+Head Pose Estimation
+    |
+    v
+Temporal Smoothing
+    |
+    v
+Duration / Occurrence Rules
+    |
+    v
+Monitoring Event
+
+Avoid raw frame-by-frame alert generation.
+
+Use smoothing/debouncing to reduce false positives.
+
+---
+
+# 6. MONITORING EVENT MODEL
+
+Every generated monitoring event should contain, where applicable:
+
+- Event ID
 - Student ID
 - Exam ID
 - Session ID
@@ -338,260 +394,1065 @@ Evidence should contain, where applicable:
 - Confidence
 - Duration
 - Occurrence number
-- Timestamp
 - Severity
+- Timestamp
+- Status
+
+Example:
+
+EVT-2026-000145
+
+Student: STU-1024
+Exam: DEMO-EXAM-01
+Activity: HEAD_RIGHT
+Severity: Medium
+Confidence: 87.4%
+Duration: 4.2 sec
+Occurrence: 3/3
+Detected At: 2026-08-22 12:21:14
+Status: PENDING_REVIEW
+
+---
+
+# 7. EVIDENCE GENERATION
+
+Evidence should be generated only when the configured monitoring rule is satisfied.
+
+Evidence should include:
+
+- Evidence ID
+- Event ID
 - Image path
-- Review status
-- Metadata
+- Capture timestamp
+- Activity type
+- Confidence
+- Duration
+- Relevant metadata
 
-Review statuses:
+Example:
 
-- PENDING_REVIEW
-- CONFIRMED
-- IGNORED
+evidence/
+    2026/
+        08/
+            22/
+                EVT-2026-000145.jpg
 
-The system generates evidence.
+Do not store unnecessary duplicate images.
 
-The administrator performs the final review.
+Do not capture evidence continuously.
 
----
-
-## 14. Real-Time Monitoring
-
-Use WebSocket communication for real-time monitoring events.
-
-Do not send unnecessary high-frequency data.
-
-Handle:
-
-- Connection failures
-- Reconnection
-- Duplicate events
-- Stale events
-- Authentication failures
-
-The application should remain stable if a WebSocket connection temporarily fails.
+Evidence storage must remain abstracted so that local filesystem storage can later be replaced with object storage if required.
 
 ---
 
-## 15. UI / UX
+# 8. DATABASE ARCHITECTURE
 
-Use the approved Exam Nigahban design system.
+Current core tables include:
 
-### Student UI
+- users
+- students
+- exams
+- questions
+- exam_sessions
+- student_answers
 
-Prioritize:
+Additional monitoring-related tables should include:
 
-- Low distraction
-- Clear instructions
-- Exam focus
-- Camera/system status
-- Visible timer
-- Question navigation
-- Accessible controls
+- monitoring_rules
+- monitoring_events
+- evidence
+- admin_actions
+- system_logs
 
-### Admin UI
+## 8.1 users
 
-Prioritize:
+Fields:
 
-- Real-time monitoring
-- Alert visibility
-- Evidence review
-- Filtering
-- Student/session status
-- Administrative actions
-- Auditability
+- id
+- username
+- password_hash
+- role
+- status
+- created_at
 
-Do not introduce arbitrary colors.
+## 8.2 students
 
-Use the approved project colors consistently.
+Fields:
 
-Do not communicate important information using color alone.
+- id
+- user_id
+- student_id
+- full_name
+- department
+- class
+- is_active
+- created_at
+
+## 8.3 exams
+
+Fields:
+
+- id
+- title
+- description
+- duration_minutes
+- status
+- created_at
+
+## 8.4 questions
+
+Fields:
+
+- id
+- exam_id
+- question_text
+- option_a
+- option_b
+- option_c
+- option_d
+- correct_answer
+
+## 8.5 exam_sessions
+
+Fields:
+
+- id
+- student_id
+- exam_id
+- started_at
+- ended_at
+- status
+- score
+
+## 8.6 student_answers
+
+Store student answers associated with an examination session and question.
+
+## 8.7 monitoring_rules
+
+Fields:
+
+- id
+- activity_type
+- enabled
+- min_duration_sec
+- required_occurrences
+- confidence_threshold
+- severity
+
+## 8.8 monitoring_events
+
+Fields:
+
+- id
+- session_id
+- event_type
+- confidence
+- duration
+- occurrences
+- severity
+- detected_at
+- status
+
+## 8.9 evidence
+
+Fields:
+
+- id
+- event_id
+- image_path
+- captured_at
+- metadata
+
+## 8.10 admin_actions
+
+Fields:
+
+- id
+- event_id
+- admin_id
+- action
+- reason
+- created_at
 
 ---
 
-## 16. Security
+# 9. CURRENT DATABASE STATE
+
+The repository already contains a working MySQL database.
+
+Current foundational tables:
+
+- users
+- students
+- exams
+- questions
+- exam_sessions
+- student_answers
+
+IMPORTANT:
+
+Do NOT destroy or recreate the existing database unnecessarily.
+
+Do NOT reset the database during normal development.
+
+Before changing existing models:
+
+1. Inspect the current model.
+2. Inspect the current database schema.
+3. Determine migration impact.
+4. Make the smallest safe change.
+5. Verify existing functionality.
+
+Do not delete existing tables merely to simplify development.
+
+---
+
+# 10. AUTHENTICATION AND SECURITY
+
+Security is mandatory.
+
+## 10.1 Passwords
+
+Never store plaintext passwords.
+
+Use secure password hashing.
+
+## 10.2 Secrets
 
 Never commit:
 
-- `.env`
-- Passwords
+.env
+
+Never expose:
+
+- Database passwords
+- Secret keys
 - API keys
-- JWT secrets
-- Database credentials
-- Private keys
-- Authentication tokens
+- Tokens
+- Private credentials
 
-Use `.env.example` for safe configuration examples.
+Use:
 
-Validate external input.
+.env
+.env.example
 
-Use secure database access patterns.
+.env.example must contain placeholders only.
 
-Protect administrative endpoints.
+## 10.3 Authentication
 
-Protect evidence access.
+Implement:
 
----
+- Login
+- Logout
+- Authentication verification
+- Role-based authorization
+- Session/token expiration
+- Protected routes
 
-## 17. Evidence Storage
+Roles:
 
-Runtime evidence must not be committed to Git.
-
-Store evidence metadata in MySQL.
-
-Store evidence files through a dedicated storage abstraction.
-
-The implementation should allow future migration to object storage without redesigning the monitoring system.
-
----
-
-## 18. Testing
-
-Important features must be verified.
-
-Test at minimum:
-
-- Authentication
-- Authorization
-- Exam creation
-- Question management
-- Exam sessions
-- Answer submission
-- Monitoring rules
-- Evidence creation
-- WebSocket events
-- Evidence review
-- Administrative actions
-
-A feature is not complete merely because code has been written.
+- ADMIN
+- STUDENT
 
 ---
 
-## 19. Git Workflow
+# 11. API DESIGN
 
-Work in small, reviewable increments.
+Use RESTful API conventions.
 
-Before committing:
+Expected API structure:
 
-1. Review changed files.
-2. Run `git diff`.
-3. Run relevant tests.
-4. Check for secrets.
-5. Verify the affected workflow.
+POST   /api/auth/login
+POST   /api/auth/logout
+GET    /api/auth/me
 
-Use meaningful commit messages.
+GET    /api/students
+POST   /api/students
+GET    /api/students/{id}
+PUT    /api/students/{id}
+DELETE /api/students/{id}
+
+GET    /api/exams
+POST   /api/exams
+GET    /api/exams/{id}
+PUT    /api/exams/{id}
+DELETE /api/exams/{id}
+
+GET    /api/exams/{id}/questions
+POST   /api/exams/{id}/questions
+
+POST   /api/exam-sessions
+GET    /api/exam-sessions/{id}
+
+POST   /api/monitoring/events
+GET    /api/monitoring/events
+
+GET    /api/evidence
+GET    /api/evidence/{id}
+
+POST   /api/evidence/{id}/review
+
+Exact route naming may be refined during implementation, but maintain consistency.
+
+---
+
+# 12. WEBSOCKET
+
+WebSocket is required for real-time monitoring alerts.
+
+Preferred flow:
+
+Student Browser
+    |
+    v
+Monitoring Event
+    |
+    v
+FastAPI
+    |
+    v
+WebSocket
+    |
+    v
+Admin Dashboard
+
+The admin dashboard should receive new monitoring alerts without requiring a manual page refresh.
+
+Do not use WebSocket for unnecessary bulk data transfer.
+
+---
+
+# 13. FRONTEND ARCHITECTURE
+
+Use:
+
+- React
+- Vite
+- JavaScript
+- Bootstrap 5.3
+- CSS3
+- Axios
+- React Router
+- Native WebSocket
+
+Do NOT introduce:
+
+- Redux
+- Tailwind CSS
+- Next.js
+- jQuery
+- Angular
+- Vue
+- Heavy UI frameworks
+- Unnecessary state-management libraries
+
+Keep the frontend lightweight.
+
+---
+
+# 14. FRONTEND SCREEN INVENTORY
+
+## 14.1 Student Screens
+
+Required screens:
+
+1. Login
+2. Terms & Conditions
+3. Camera Permission
+4. System / Camera Check
+5. Exam Ready
+6. Active Examination
+7. Submission Confirmation
+8. Exam Status / Result
+
+Flow:
+
+Login
+    ↓
+Terms & Conditions
+    ↓
+Camera Permission
+    ↓
+System / Camera Check
+    ↓
+Exam Ready
+    ↓
+Active Examination
+    ↓
+Submission Confirmation
+    ↓
+Exam Status / Result
+
+## 14.2 Admin Screens
+
+Required screens:
+
+- Admin Login
+- Dashboard
+- Live Monitoring
+- Evidence Center
+- Evidence Detail / Review
+- Student Management
+- Exam Management
+- Question Management
+- Exam Sessions
+- Audit / Action History
+- System Settings
+
+---
+
+# 15. UI / UX PRINCIPLES
+
+The UI must be:
+
+- Professional
+- Modern
+- Minimal
+- Consistent
+- Responsive
+- Accessible
+- Fast
+- Easy to understand
+
+## 15.1 Student Experience
+
+Student interface should be:
+
+- Calm
+- Low-distraction
+- Focused on examination
+- Clear
+- Simple
+
+Avoid unnecessary animations.
+
+## 15.2 Admin Experience
+
+Admin interface should be:
+
+- Information-rich
+- Operational
+- Easy to scan
+- Alert-focused
+- Efficient for reviewing evidence
+
+---
+
+# 16. UI COMPONENT SYSTEM
+
+Use reusable components.
 
 Examples:
 
-- `feat: add authentication foundation`
-- `feat: implement exam session workflow`
-- `feat: add monitoring event engine`
-- `feat: add evidence review workflow`
-- `fix: handle websocket reconnect`
-- `docs: update project specification`
+- Button
+- Input
+- Select
+- Modal
+- Badge
+- Alert
+- Toast
+- Card
+- Table
+- Pagination
+- LoadingState
+- EmptyState
+- ErrorState
+- ConfirmDialog
+- CameraPreview
+- ExamTimer
+- QuestionCard
+- EvidenceCard
+- EvidenceViewer
+- MonitoringAlert
+- StatusBadge
 
-Do not rewrite Git history unless explicitly requested.
+Do not duplicate UI logic unnecessarily.
 
 ---
 
-## 20. Dependency Policy
+# 17. ACCESSIBILITY
 
-Before installing a dependency:
+Follow practical accessibility standards.
 
-1. Check whether the existing stack already provides the capability.
-2. Confirm the dependency is necessary.
-3. Prefer stable and well-maintained packages.
-4. Keep dependencies minimal.
-5. Document important architectural dependencies.
+Ensure:
 
-Do not add packages simply because they are popular.
+- Visible keyboard focus
+- Proper labels
+- Sufficient color contrast
+- Keyboard-friendly controls
+- Meaningful button labels
+- Accessible form validation
+- Do not rely on color alone to communicate status
 
 ---
 
-## 21. Avoid Over-Engineering
+# 18. MONITORING UI LANGUAGE
 
-This is a hackathon MVP.
+Never display:
 
-Do not introduce unnecessarily:
+CHEATING DETECTED
+
+STUDENT IS CHEATING
+
+AI CONFIRMED CHEATING
+
+Use:
+
+- Monitoring Alert
+- Suspicious Activity
+- Evidence Generated
+- Pending Review
+- Admin Review Required
+
+Admin decisions can be:
+
+- CONFIRMED
+- IGNORED
+
+The UI must clearly distinguish AI-generated evidence from the administrator's final decision.
+
+---
+
+# 19. ERROR HANDLING
+
+Every important operation must handle:
+
+- Loading state
+- Success state
+- Empty state
+- Error state
+
+Backend errors should return consistent responses.
+
+Frontend should show user-friendly messages.
+
+Do not expose:
+
+- Stack traces
+- Database errors
+- Internal paths
+- Secrets
+- Debug information
+
+to normal users.
+
+---
+
+# 20. LOGGING
+
+Use structured application logging where useful.
+
+Log:
+
+- Authentication events
+- Important API errors
+- Exam session events
+- Monitoring events
+- Evidence generation
+- Admin actions
+- Security-related events
+
+Do NOT log:
+
+- Passwords
+- Access tokens
+- Secret keys
+- Sensitive credentials
+
+---
+
+# 21. PRIVACY
+
+The system handles sensitive examination information.
+
+Therefore:
+
+- Collect only required information.
+- Do not continuously store webcam video.
+- Store evidence only when monitoring rules trigger.
+- Restrict evidence access to authorized administrators.
+- Do not expose student monitoring data publicly.
+- Do not place credentials in source code.
+- Keep evidence storage controlled.
+
+---
+
+# 22. TESTING REQUIREMENTS
+
+Every major implementation task must be tested.
+
+## 22.1 Backend
+
+Test:
+
+- API tests
+- Authentication tests
+- Authorization tests
+- Database tests
+- Validation tests
+- Monitoring event tests
+
+## 22.2 Frontend
+
+Test:
+
+- Login flow
+- Camera permission flow
+- Exam flow
+- Admin dashboard
+- Evidence review
+- WebSocket alerts
+
+## 22.3 AI
+
+Test:
+
+- Face present
+- Face absent
+- Multiple faces
+- Head left
+- Head right
+- Head up
+- Head down
+- Looking away
+- Mobile phone detection
+- False-positive resistance
+- Temporal rules
+
+Do not claim an AI feature works without testing it.
+
+---
+
+# 23. GIT WORKFLOW
+
+Use Git consistently.
+
+Before significant work:
+
+git status
+
+After a completed task:
+
+git add .
+git commit -m "Clear description of completed task"
+
+Use small, meaningful commits.
+
+Examples:
+
+feat: add authentication API
+feat: add student management
+feat: add exam question APIs
+feat: add monitoring event model
+feat: add evidence review workflow
+feat: add live monitoring dashboard
+fix: correct exam session validation
+test: add authentication tests
+
+Do not create giant commits containing unrelated changes.
+
+---
+
+# 24. CLAUDE CODE WORKFLOW
+
+Claude Code MUST follow this workflow.
+
+## Step 1 — Read Instructions
+
+Always read:
+
+CLAUDE.md
+
+before making changes.
+
+## Step 2 — Inspect
+
+Before implementing a feature:
+
+- Inspect relevant files.
+- Understand existing architecture.
+- Check existing models.
+- Check existing routes.
+- Check existing components.
+- Check dependencies.
+- Check current database state.
+
+## Step 3 — Plan
+
+Provide a concise implementation plan before significant changes.
+
+## Step 4 — Implement
+
+Implement only the requested/scoped task.
+
+## Step 5 — Verify
+
+Run appropriate:
+
+- Tests
+- Linters
+- Syntax checks
+- API checks
+- Build checks
+
+## Step 6 — Report
+
+Clearly report:
+
+- What changed
+- Files changed
+- Tests performed
+- Results
+- Any remaining issue
+
+---
+
+# 25. CLAUDE CODE BEHAVIOR RULES
+
+Claude must:
+
+- Follow this document.
+- Preserve existing working functionality.
+- Make minimal changes.
+- Prefer simple solutions.
+- Reuse existing components and services.
+- Avoid unnecessary dependencies.
+- Avoid unrelated refactoring.
+- Ask for clarification when requirements conflict.
+- Identify risks before destructive changes.
+- Verify changes.
+
+Claude must NOT:
+
+- Rebuild the project from scratch without approval.
+- Delete the database.
+- Delete working modules unnecessarily.
+- Replace the selected architecture.
+- Introduce unnecessary frameworks.
+- Add unrelated features.
+- Modify .env secrets unnecessarily.
+- Commit secrets.
+- Claim untested functionality works.
+- Automatically classify a student as cheating.
+
+---
+
+# 26. DO NOT OVER-ENGINEER THE MVP
+
+The hackathon MVP must prioritize:
+
+1. Reliability
+2. Demonstrability
+3. AI monitoring
+4. Evidence generation
+5. Real-time admin visibility
+6. Security
+7. Professional UI
+8. Testing
+
+Avoid unnecessary infrastructure such as:
 
 - Redis
 - Kubernetes
 - Microservices
-- Message brokers
-- Multiple databases
+- Message queues
+- Complex distributed systems
+- Excessive caching
 - Complex event buses
-- Large cloud infrastructure
 
-Prefer a clean modular monolith.
+unless a genuine technical requirement appears.
 
----
-
-## 22. Development Milestones
-
-Follow this order:
-
-1. Repository foundation
-2. Project configuration
-3. Frontend foundation
-4. Backend foundation
-5. Database schema
-6. Authentication
-7. Student workflow
-8. Admin workflow
-9. Exam engine
-10. Camera permission and system check
-11. AI monitoring foundation
-12. Head/face monitoring
-13. Mobile phone detection
-14. Temporal rule engine
-15. Evidence generation
-16. WebSocket alerts
-17. Evidence review
-18. Audit logging
-19. Integration testing
-20. UI/UX refinement
-21. Security review
-22. Hackathon demonstration preparation
-
-Do not jump randomly between milestones.
+The MVP should remain simple enough for a small development team to maintain.
 
 ---
 
-## 23. Definition of Done
+# 27. CURRENT REPOSITORY STRUCTURE
 
-A task is complete only when:
+Expected structure:
+
+Exam-Nigahban/
+|
+├── backend/
+│   ├── app/
+│   │   ├── core/
+│   │   ├── db/
+│   │   ├── models/
+│   │   ├── schemas/
+│   │   ├── services/
+│   │   ├── websocket/
+│   │   └── main.py
+│   │
+│   ├── tests/
+│   ├── .env
+│   ├── .env.example
+│   └── requirements.txt
+│
+├── frontend/
+│   ├── src/
+│   ├── public/
+│   ├── package.json
+│   └── vite.config.js
+│
+├── ai/
+│   ├── face/
+│   ├── object_detection/
+│   └── monitoring/
+│
+├── database/
+│   ├── migrations/
+│   └── seeds/
+│
+├── evidence/
+│
+├── docs/
+│
+├── tests/
+│
+├── CLAUDE.md
+├── TASKS.md
+├── PROJECT_SPEC.md
+└── README.md
+
+The actual repository may differ temporarily.
+
+Do not restructure everything merely to match this diagram.
+
+Preserve working code and evolve toward this structure incrementally.
+
+---
+
+# 28. CURRENT IMPLEMENTATION STATUS
+
+The following foundation has already been implemented and verified:
+
+- Git repository initialized
+- Project structure created
+- Python virtual environment
+- FastAPI application
+- MySQL database
+- SQLAlchemy connection
+- Configuration system
+- User model
+- Student model
+- Exam model
+- Question model
+- ExamSession model
+- StudentAnswer model
+- Database tables
+- FastAPI health endpoint
+- Swagger/OpenAPI documentation
+- MySQL connection verified
+
+Current foundational database tables:
+
+- users
+- students
+- exams
+- questions
+- exam_sessions
+- student_answers
+
+Do not rebuild these components from scratch.
+
+Continue development from the existing implementation.
+
+---
+
+# 29. PRIORITY ORDER
+
+Unless the project owner specifies otherwise, implement remaining functionality approximately in this order.
+
+## Phase 1 — Authentication
+
+- Password hashing
+- Login
+- Logout
+- Authentication
+- Role-based authorization
+- Admin account management
+- Student account management
+
+## Phase 2 — Exam Management
+
+- Exam CRUD
+- Question CRUD
+- Exam sessions
+- Student answers
+- Exam submission
+- Basic scoring
+
+## Phase 3 — Student Examination Flow
+
+- Terms & Conditions
+- Camera permission
+- Camera readiness
+- System check
+- Exam interface
+- Timer
+- Submission
+
+## Phase 4 — AI Monitoring
+
+- MediaPipe face detection
+- Head-pose estimation
+- Looking-away detection
+- Face absence
+- Multiple faces
+- YOLO mobile-phone detection
+
+## Phase 5 — Temporal Rule Engine
+
+- Duration tracking
+- Occurrence tracking
+- Confidence thresholds
+- Event generation
+- Severity
+
+## Phase 6 — Evidence
+
+- Evidence capture
+- Evidence storage
+- Evidence metadata
+- Evidence API
+
+## Phase 7 — Real-Time Administration
+
+- WebSocket
+- Live monitoring
+- Monitoring alerts
+- Evidence center
+- Evidence review
+- Admin actions
+
+## Phase 8 — Polish
+
+- Error handling
+- Security review
+- UI refinement
+- Testing
+- Performance
+- Demo preparation
+- Documentation
+
+---
+
+# 30. DEFINITION OF DONE
+
+A feature is NOT considered complete merely because code was written.
+
+A feature is complete only when:
 
 - Requirements are implemented.
-- Architecture is respected.
+- Existing functionality remains working.
+- Code follows project architecture.
+- Appropriate validation exists.
+- Errors are handled.
 - Relevant tests pass.
-- The affected workflow is verified.
-- No secrets are exposed.
-- No unnecessary dependencies were introduced.
-- Git diff has been reviewed.
-- Documentation is updated when required.
+- UI works where applicable.
+- API behavior is verified.
+- Security considerations are addressed.
+- No secrets are committed.
+- Claude reports exactly what was changed and verified.
 
 ---
 
-## 24. Claude Working Rules
+# 31. HACKATHON MVP BOUNDARY
 
-When working on a task:
+## IN SCOPE
 
-1. Read the relevant documentation first.
-2. Inspect the existing files.
-3. Explain the implementation plan briefly.
-4. Make focused changes.
-5. Do not modify unrelated files.
-6. Run appropriate validation.
-7. Review the result.
-8. Report changed files and verification results.
+- Secure authentication
+- Admin-created accounts
+- Student examination
+- Camera permission
+- Pre-exam system check
+- AI-assisted monitoring
+- Head pose
+- Face absence
+- Multiple faces
+- Mobile phone detection
+- Temporal suspicious-activity rules
+- Evidence capture
+- Real-time admin alerts
+- Evidence review
+- Admin decisions
+- Audit history
+- Professional responsive UI
 
-If a requirement is ambiguous and affects security, architecture, data integrity, or the user workflow, ask before making a major assumption.
+## OUT OF SCOPE
+
+Unless explicitly approved:
+
+- Autonomous cheating decisions
+- Continuous video recording
+- Smartwatch detection
+- Digital-camera detection
+- Laptop detection
+- Advanced biometric identity recognition
+- Complex cloud infrastructure
+- Microservice architecture
+- Unnecessary third-party integrations
+- Mobile application
+- Large-scale production deployment infrastructure
 
 ---
 
-## 25. Final Principle
+# 32. FINAL ENGINEERING PRINCIPLE
 
-Build Exam Nigahban incrementally, securely, and professionally.
+Build Exam Nigahban as a:
 
-Prefer simple, maintainable, testable solutions over unnecessary complexity.
+SECURE, LIGHTWEIGHT, EXPLAINABLE, AI-ASSISTED EXAMINATION MONITORING SYSTEM.
+
+Prioritize:
+
+Correctness
+    >
+Reliability
+    >
+Security
+    >
+Explainability
+    >
+Performance
+    >
+Visual Polish
+
+Do not optimize for complexity.
+
+Do not optimize for the number of technologies used.
+
+Optimize for a system that can be:
+
+1. Demonstrated confidently.
+2. Tested reliably.
+3. Understood by judges.
+4. Maintained by a small team.
+5. Extended after the hackathon.
+
+---
+
+# 33. IMPORTANT AGENT INSTRUCTION
+
+Before changing ANY file:
+
+1. Read CLAUDE.md.
+2. Inspect the relevant existing implementation.
+3. Identify dependencies and side effects.
+4. Explain the proposed change briefly.
+5. Implement only the approved/scoped task.
+6. Test the change.
+7. Report the result.
+
+Never assume that an empty or incomplete-looking file means it should be recreated.
+
+Never overwrite working code without inspection.
+
+Never make broad architectural changes without explicit approval.
+
+Never delete data or project files as a shortcut.
+
+When uncertain, stop and ask the project owner.
+
+---
+
+# END OF EXAM NIGAHBAN CLAUDE CODE DEVELOPMENT GUIDELINES
