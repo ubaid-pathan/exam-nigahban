@@ -8,7 +8,7 @@ from app.core.security import hash_password
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
-from app.db.models import User
+from app.db.models import Student, User
 
 engine = create_engine(
     "sqlite:///:memory:",
@@ -76,6 +76,22 @@ def student_user(db_session):
     db_session.commit()
     db_session.refresh(user)
     return user
+
+
+@pytest.fixture
+def student_profile(db_session, student_user):
+    student = Student(
+        user_id=student_user.id,
+        student_id="STU-1001",
+        full_name="Test Student",
+        department="Computer Science",
+        class_name="CS-101",
+        is_active=True,
+    )
+    db_session.add(student)
+    db_session.commit()
+    db_session.refresh(student)
+    return student
 
 
 @pytest.fixture
