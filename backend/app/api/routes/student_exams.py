@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_student
@@ -100,16 +101,24 @@ def list_available_exams(
 ) -> list[StudentExamSummary]:
     exams = db.query(Exam).filter(Exam.status == "active").order_by(Exam.id).all()
     sessions_by_exam = {
-        s.exam_id: s.status
+        s.exam_id: s
         for s in db.query(ExamSession).filter(ExamSession.student_id == student.id).all()
     }
+    question_counts = dict(
+        db.query(Question.exam_id, func.count(Question.id))
+        .filter(Question.exam_id.in_([exam.id for exam in exams]))
+        .group_by(Question.exam_id)
+        .all()
+    )
     return [
         StudentExamSummary(
             id=exam.id,
             title=exam.title,
             description=exam.description,
             duration_minutes=exam.duration_minutes,
-            session_status=sessions_by_exam.get(exam.id),
+            session_status=sessions_by_exam[exam.id].status if exam.id in sessions_by_exam else None,
+            session_id=sessions_by_exam[exam.id].id if exam.id in sessions_by_exam else None,
+            question_count=question_counts.get(exam.id, 0),
         )
         for exam in exams
     ]
@@ -127,12 +136,15 @@ def get_available_exam(
         .filter(ExamSession.exam_id == exam.id, ExamSession.student_id == student.id)
         .first()
     )
+    question_count = db.query(Question).filter(Question.exam_id == exam.id).count()
     return StudentExamSummary(
         id=exam.id,
         title=exam.title,
         description=exam.description,
         duration_minutes=exam.duration_minutes,
         session_status=existing.status if existing else None,
+        session_id=existing.id if existing else None,
+        question_count=question_count,
     )
 
 

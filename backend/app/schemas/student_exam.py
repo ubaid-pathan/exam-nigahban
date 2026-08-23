@@ -14,6 +14,8 @@ class StudentExamSummary(BaseModel):
     description: str | None
     duration_minutes: int
     session_status: str | None = None
+    session_id: int | None = None
+    question_count: int = 0
 
 
 class StudentQuestionResponse(BaseModel):
