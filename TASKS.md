@@ -202,43 +202,43 @@
 ## Examination Sessions
 
 - [ ] Create exam-session service
-- [ ] Create exam-session API
-- [ ] Implement session creation
-- [ ] Implement session start
-- [ ] Implement session state management
-- [ ] Implement session timeout
-- [ ] Implement session completion
-- [ ] Implement session submission
-- [ ] Prevent duplicate active sessions where required
-- [ ] Validate student session ownership
+- [x] Create exam-session API
+- [x] Implement session creation
+- [x] Implement session start
+- [x] Implement session state management
+- [x] Implement session timeout
+- [x] Implement session completion
+- [x] Implement session submission
+- [x] Prevent duplicate active sessions where required
+- [x] Validate student session ownership
 
 ## Student Answers
 
-- [ ] Create answer schemas
-- [ ] Implement answer submission
-- [ ] Implement answer update
-- [ ] Validate answer ownership
-- [ ] Prevent access to other students' answers
-- [ ] Preserve submitted answers
+- [x] Create answer schemas
+- [x] Implement answer submission
+- [x] Implement answer update
+- [x] Validate answer ownership
+- [x] Prevent access to other students' answers
+- [x] Preserve submitted answers
 
 ## Result Calculation
 
-- [ ] Implement score calculation
-- [ ] Calculate result after submission
-- [ ] Store result
-- [ ] Return appropriate result/status
-- [ ] Prevent unauthorized result modification
+- [x] Implement score calculation
+- [x] Calculate result after submission
+- [x] Store result
+- [x] Return appropriate result/status
+- [x] Prevent unauthorized result modification
 
 ## Examination Testing
 
 - [x] Test exam CRUD
 - [x] Test question CRUD
-- [ ] Test session creation
-- [ ] Test session lifecycle
-- [ ] Test answer submission
-- [ ] Test answer ownership
-- [ ] Test exam submission
-- [ ] Test result calculation
+- [x] Test session creation
+- [x] Test session lifecycle
+- [x] Test answer submission
+- [x] Test answer ownership
+- [x] Test exam submission
+- [x] Test result calculation
 
 ## Git Checkpoint
 
