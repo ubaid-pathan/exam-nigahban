@@ -107,30 +107,30 @@
 
 ## Authentication Backend
 
-- [ ] Create authentication schemas
-- [ ] Implement secure password hashing
-- [ ] Implement password verification
-- [ ] Implement login endpoint
-- [ ] Implement logout
-- [ ] Implement current-user endpoint
-- [ ] Implement authentication/session or token management
-- [ ] Implement authentication expiration
-- [ ] Implement invalid credential handling
-- [ ] Implement inactive-account handling
+- [x] Create authentication schemas
+- [x] Implement secure password hashing
+- [x] Implement password verification
+- [x] Implement login endpoint
+- [x] Implement logout
+- [x] Implement current-user endpoint
+- [x] Implement authentication/session or token management
+- [x] Implement authentication expiration
+- [x] Implement invalid credential handling
+- [x] Implement inactive-account handling
 
 ## Authorization
 
-- [ ] Implement role validation
-- [ ] Implement protected API dependencies
-- [ ] Implement admin-only authorization
-- [ ] Implement student-only authorization
-- [ ] Prevent students from accessing admin APIs
+- [x] Implement role validation
+- [x] Implement protected API dependencies
+- [x] Implement admin-only authorization
+- [x] Implement student-only authorization
+- [x] Prevent students from accessing admin APIs
 - [ ] Prevent unauthorized resource access
-- [ ] Verify backend authorization independently of frontend
+- [x] Verify backend authorization independently of frontend
 
 ## Administrator Management
 
-- [ ] Create administrator account
+- [x] Create administrator account
 - [ ] View administrator accounts
 - [ ] Update administrator account
 - [ ] Activate/deactivate administrator account
@@ -138,13 +138,13 @@
 
 ## Student Management
 
-- [ ] Create student account
-- [ ] Generate/store student profile
+- [x] Create student account
+- [x] Generate/store student profile
 - [ ] View students
 - [ ] View student details
 - [ ] Update student details
 - [ ] Activate/deactivate student
-- [ ] Prevent student self-registration
+- [x] Prevent student self-registration
 - [ ] Validate student ownership and access
 
 ## Authentication Frontend
@@ -159,12 +159,12 @@
 
 ## Authentication Testing
 
-- [ ] Test valid login
-- [ ] Test invalid login
-- [ ] Test inactive account
-- [ ] Test unauthorized API access
-- [ ] Test student/admin role restrictions
-- [ ] Test logout
+- [x] Test valid login
+- [x] Test invalid login
+- [x] Test inactive account
+- [x] Test unauthorized API access
+- [x] Test student/admin role restrictions
+- [x] Test logout
 - [ ] Test expired authentication
 - [ ] Test protected frontend routes
 
