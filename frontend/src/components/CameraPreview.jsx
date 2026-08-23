@@ -1,10 +1,14 @@
-import { useEffect, useRef, useState } from 'react'
+import { forwardRef, useEffect, useRef, useState } from 'react'
 
 // Reusable camera-permission + live-preview component.
-// A future AI-monitoring milestone can mount this inside the exam-taking
-// screen and read frames from `videoRef` without any change to this component.
-export default function CameraPreview({ onStatusChange }) {
-  const videoRef = useRef(null)
+// `ref` (optional) is forwarded directly to the underlying <video> element
+// so the AI-monitoring engine can read live frames from it without this
+// component needing to know anything about monitoring.
+const CameraPreview = forwardRef(function CameraPreview(
+  { onStatusChange, autoStart = false },
+  forwardedVideoRef,
+) {
+  const internalVideoRef = useRef(null)
   const streamRef = useRef(null)
   const [status, setStatus] = useState('idle') // idle | requesting | granted | denied | unavailable | error
 
@@ -22,8 +26,8 @@ export default function CameraPreview({ onStatusChange }) {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true })
       streamRef.current = stream
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
+      if (internalVideoRef.current) {
+        internalVideoRef.current.srcObject = stream
       }
       updateStatus('granted')
     } catch (err) {
@@ -43,10 +47,28 @@ export default function CameraPreview({ onStatusChange }) {
     }
   }, [])
 
+  useEffect(() => {
+    if (autoStart) {
+      requestCamera()
+    }
+    // Intentionally mount-only: re-requesting on every re-render would
+    // repeatedly prompt/reset the stream.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const setVideoRef = (node) => {
+    internalVideoRef.current = node
+    if (typeof forwardedVideoRef === 'function') {
+      forwardedVideoRef(node)
+    } else if (forwardedVideoRef) {
+      forwardedVideoRef.current = node
+    }
+  }
+
   return (
     <div className="camera-preview">
       {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-      <video ref={videoRef} autoPlay playsInline muted className="camera-preview__video" />
+      <video ref={setVideoRef} autoPlay playsInline muted className="camera-preview__video" />
       {status !== 'granted' && (
         <div className="camera-preview__overlay">
           {status === 'idle' && (
@@ -80,4 +102,6 @@ export default function CameraPreview({ onStatusChange }) {
       )}
     </div>
   )
-}
+})
+
+export default CameraPreview

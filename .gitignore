@@ -43,15 +43,17 @@ ENV/
 *.egg-info/
 
 # AI / Machine Learning
+# Scoped to ai/ so this never shadows application source directories that
+# happen to share these common names (e.g. backend/app/models/).
 *.pt
 *.pth
 *.onnx
 *.weights
 *.engine
 *.tflite
-models/
-model_cache/
-weights/
+ai/**/models/
+ai/**/model_cache/
+ai/**/weights/
 .cache/
 
 # Evidence & Runtime Data
