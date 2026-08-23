@@ -178,26 +178,26 @@
 
 ## Examination Backend
 
-- [ ] Create exam schemas
-- [ ] Create exam API router
-- [ ] Implement exam creation
-- [ ] Implement exam listing
-- [ ] Implement exam detail
-- [ ] Implement exam update
-- [ ] Implement exam activation/deactivation
-- [ ] Implement exam deletion where appropriate
-- [ ] Validate exam ownership and authorization
+- [x] Create exam schemas
+- [x] Create exam API router
+- [x] Implement exam creation
+- [x] Implement exam listing
+- [x] Implement exam detail
+- [x] Implement exam update
+- [x] Implement exam activation/deactivation
+- [x] Implement exam deletion where appropriate
+- [x] Validate exam ownership and authorization
 
 ## Question Management
 
-- [ ] Create question schemas
-- [ ] Create question API router
-- [ ] Implement question creation
-- [ ] Implement question listing
-- [ ] Implement question update
-- [ ] Implement question deletion
-- [ ] Validate question data
-- [ ] Prevent correct answers from being exposed unnecessarily
+- [x] Create question schemas
+- [x] Create question API router
+- [x] Implement question creation
+- [x] Implement question listing
+- [x] Implement question update
+- [x] Implement question deletion
+- [x] Validate question data
+- [x] Prevent correct answers from being exposed unnecessarily
 
 ## Examination Sessions
 
@@ -231,8 +231,8 @@
 
 ## Examination Testing
 
-- [ ] Test exam CRUD
-- [ ] Test question CRUD
+- [x] Test exam CRUD
+- [x] Test question CRUD
 - [ ] Test session creation
 - [ ] Test session lifecycle
 - [ ] Test answer submission
