@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     secret_key: str = "CHANGE_THIS_TO_A_SECURE_RANDOM_SECRET"
     cors_origins: str = "http://localhost:5173"
 
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 480
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
