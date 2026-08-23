@@ -312,42 +312,44 @@
 
 ## Webcam Integration
 
-- [ ] Implement browser webcam access
-- [ ] Create camera preview component
-- [ ] Handle camera initialization
-- [ ] Handle camera errors
-- [ ] Handle camera disconnection
-- [ ] Release camera resources correctly
-- [ ] Prevent unnecessary video upload
+- [x] Implement browser webcam access
+- [x] Create camera preview component
+- [x] Handle camera initialization
+- [x] Handle camera errors
+- [ ] Handle camera disconnection (mid-stream device unplug is not explicitly detected; only initial permission/availability failures are handled)
+- [x] Release camera resources correctly
+- [x] Prevent unnecessary video upload
 
 ## Face Monitoring
 
-- [ ] Integrate MediaPipe Face Landmarker
-- [ ] Implement face presence detection
-- [ ] Implement facial landmark processing
-- [ ] Implement head-pose estimation
-- [ ] Implement head-left detection
-- [ ] Implement head-right detection
-- [ ] Implement head-up detection
-- [ ] Implement head-down detection
-- [ ] Implement looking-away detection
-- [ ] Implement temporal smoothing
+- [x] Integrate MediaPipe Face Landmarker
+- [x] Implement face presence detection
+- [x] Implement facial landmark processing
+- [x] Implement head-pose estimation
+- [x] Implement head-left detection
+- [x] Implement head-right detection
+- [x] Implement head-up detection
+- [x] Implement head-down detection
+- [x] Implement looking-away detection
+- [x] Implement temporal smoothing
 
 ## Face Absence
 
-- [ ] Detect face absence
-- [ ] Track absence duration
-- [ ] Apply configured threshold
-- [ ] Generate event when threshold is satisfied
+- [x] Detect face absence
+- [x] Track absence duration
+- [x] Apply configured threshold
+- [x] Generate event when threshold is satisfied
 
 ## Multiple Faces
 
-- [ ] Detect multiple faces
-- [ ] Track persistence
-- [ ] Apply configured threshold
-- [ ] Generate event when threshold is satisfied
+- [x] Detect multiple faces
+- [x] Track persistence
+- [x] Apply configured threshold
+- [x] Generate event when threshold is satisfied
 
 ## Mobile Phone Detection
+
+Out of scope for this milestone (approved as a face-monitoring-only milestone); deferred to a future YOLO milestone.
 
 - [ ] Integrate YOLO inference
 - [ ] Load required model
@@ -359,46 +361,48 @@
 
 ## AI Monitoring Rules
 
+Thresholds were centralized as versioned constants modules (frontend `src/monitoring/constants.js`, backend `app/core/monitoring_constants.py`) rather than a database-backed rules table, since the milestone only required avoiding hard-coded values, not runtime-configurable rules. A DB-backed `monitoring_rules` table with an admin-facing enable/disable API remains a candidate for a later milestone if runtime reconfiguration is needed.
+
 - [ ] Create monitoring rule model
 - [ ] Create monitoring rule schema
 - [ ] Create monitoring rule API/service
-- [ ] Configure activity types
-- [ ] Configure minimum duration
-- [ ] Configure required occurrences
-- [ ] Configure confidence threshold
-- [ ] Configure severity
+- [x] Configure activity types
+- [x] Configure minimum duration
+- [x] Configure required occurrences
+- [x] Configure confidence threshold
+- [x] Configure severity
 - [ ] Enable/disable rules
 
 ## Temporal Rule Engine
 
-- [ ] Create temporal monitoring service
-- [ ] Track detection duration
-- [ ] Track occurrences
-- [ ] Track confidence
-- [ ] Apply temporal smoothing
-- [ ] Prevent duplicate continuous events
-- [ ] Apply configured rule thresholds
-- [ ] Generate structured monitoring events
+- [x] Create temporal monitoring service
+- [x] Track detection duration
+- [x] Track occurrences
+- [x] Track confidence
+- [x] Apply temporal smoothing
+- [x] Prevent duplicate continuous events
+- [x] Apply configured rule thresholds
+- [x] Generate structured monitoring events
 
 ## AI Testing
 
-- [ ] Test face detection
-- [ ] Test head-left detection
-- [ ] Test head-right detection
-- [ ] Test head-up detection
-- [ ] Test head-down detection
-- [ ] Test looking-away detection
-- [ ] Test face absence
-- [ ] Test multiple faces
-- [ ] Test mobile phone detection
-- [ ] Test confidence thresholds
-- [ ] Test duration thresholds
-- [ ] Test occurrence thresholds
-- [ ] Test false-positive scenarios
+- [x] Test face detection
+- [x] Test head-left detection
+- [x] Test head-right detection
+- [x] Test head-up detection
+- [x] Test head-down detection
+- [x] Test looking-away detection
+- [x] Test face absence
+- [x] Test multiple faces
+- [ ] Test mobile phone detection (out of scope this milestone)
+- [x] Test confidence thresholds
+- [x] Test duration thresholds
+- [x] Test occurrence thresholds
+- [x] Test false-positive scenarios
 
 ## Git Checkpoint
 
-- [ ] Commit AI Monitoring milestone
+- [ ] Commit AI Monitoring milestone (pending project-owner approval per milestone instructions)
 
 ---
 
@@ -406,17 +410,19 @@
 
 ## Monitoring Events
 
-- [ ] Create monitoring event model
-- [ ] Create monitoring event schema
-- [ ] Create monitoring event service
-- [ ] Store activity type
-- [ ] Store confidence
-- [ ] Store duration
-- [ ] Store occurrence count
-- [ ] Store severity
-- [ ] Store detection timestamp
-- [ ] Store event status
-- [ ] Generate unique event ID
+Delivered early, as part of the Phase 5 AI Monitoring Foundation milestone (needed so the browser-side temporal rule engine had somewhere to persist stabilized events for future admin review):
+
+- [x] Create monitoring event model (`backend/app/models/monitoring_event.py`)
+- [x] Create monitoring event schema (`backend/app/schemas/monitoring.py`)
+- [x] Create monitoring event service (ownership/validation logic lives directly in `backend/app/api/routes/monitoring.py`, consistent with how `student_exams.py` also has no separate service-layer file)
+- [x] Store activity type
+- [x] Store confidence
+- [x] Store duration
+- [x] Store occurrence count
+- [x] Store severity
+- [x] Store detection timestamp
+- [x] Store event status
+- [ ] Generate unique event ID (uses the existing auto-increment integer PK convention used by every other table in this schema, not a formatted `EVT-...` display ID)
 
 ## Evidence Capture
 

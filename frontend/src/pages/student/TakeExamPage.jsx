@@ -9,11 +9,15 @@ import {
   submitExam,
 } from '../../api/studentExams'
 import { getErrorMessage, getStatusCode } from '../../utils/apiError'
+import { postMonitoringEvent } from '../../api/monitoring'
 import LoadingState from '../../components/LoadingState'
 import ErrorState from '../../components/ErrorState'
 import ExamTimer from '../../components/ExamTimer'
 import QuestionPalette from '../../components/QuestionPalette'
 import ConfirmModal from '../../components/ConfirmModal'
+import CameraPreview from '../../components/CameraPreview'
+import MonitoringStatusPanel from '../../monitoring/MonitoringStatusPanel'
+import { useFaceMonitoring } from '../../monitoring/useFaceMonitoring'
 
 const RESYNC_INTERVAL_MS = 20000
 const OPTIONS = [
@@ -51,6 +55,24 @@ export default function TakeExamPage() {
   useEffect(() => {
     lockedRef.current = locked
   }, [locked])
+
+  const videoRef = useRef(null)
+  const [cameraStatus, setCameraStatus] = useState('idle')
+
+  const handleMonitoringEvent = useCallback(
+    (event) => {
+      if (!sessionId) return
+      // A monitoring-event delivery failure is transient and must never
+      // interrupt the exam; the AI monitoring engine keeps running
+      // regardless, and this event is simply not persisted for review.
+      postMonitoringEvent(sessionId, event).catch(() => {})
+    },
+    [sessionId],
+  )
+
+  const monitoringActive = Boolean(sessionId) && !locked && cameraStatus === 'granted'
+  const { status: monitoringStatus, observationStatus, errorMessage: monitoringError } =
+    useFaceMonitoring(videoRef, monitoringActive, handleMonitoringEvent)
 
   const lockSession = useCallback(
     (reason) => {
@@ -296,6 +318,21 @@ export default function TakeExamPage() {
         </div>
 
         <div className="col-12 col-lg-4">
+          <div className="card exam-card mb-4">
+            <div className="card-body">
+              <h2 className="h6">Exam Monitoring</h2>
+              <CameraPreview ref={videoRef} onStatusChange={setCameraStatus} autoStart />
+              <div className="mt-3">
+                <MonitoringStatusPanel
+                  status={monitoringStatus}
+                  observationStatus={observationStatus}
+                  errorMessage={monitoringError}
+                  cameraStatus={cameraStatus}
+                />
+              </div>
+            </div>
+          </div>
+
           <div className="card exam-card">
             <div className="card-body">
               <h2 className="h6">Question Navigator</h2>
