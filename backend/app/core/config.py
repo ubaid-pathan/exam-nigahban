@@ -19,6 +19,12 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 480
 
+    # Local-filesystem evidence storage root. May be absolute, or relative
+    # to the repository root. See app/services/evidence_storage.py -- this
+    # is the only setting that abstraction depends on, so switching to
+    # object storage later never touches model/route/schema code.
+    evidence_storage_root: str = "evidence"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

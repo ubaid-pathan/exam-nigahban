@@ -3,6 +3,7 @@ import { detectFrame, getFaceLandmarker, resetFaceLandmarker } from './faceMonit
 import { classifyHeadPose, extractYawPitchDegFromMatrix } from './headPose'
 import { buildActiveConditions } from './observation'
 import { createTemporalRuleEngine } from './temporalRuleEngine'
+import { captureFrameAsJpegBase64 } from './evidenceCapture'
 import { DETECTION_INTERVAL_MS } from './constants'
 
 // MediaPipe already gates detections below this threshold internally (see
@@ -86,7 +87,12 @@ export function useFaceMonitoring(videoRef, active, onEvent) {
                 { activeConditions, confidence: FRAME_CONFIDENCE },
                 nowMs,
               )
-              events.forEach((event) => onEventRef.current?.(event))
+              // Evidence is captured only for a frame that already produced
+              // a stabilized event -- never captured on a timer/loop.
+              events.forEach((event) => {
+                const evidenceImageBase64 = captureFrameAsJpegBase64(video)
+                onEventRef.current?.({ ...event, evidenceImageBase64 })
+              })
             } catch {
               // A single failed detection frame is not fatal; skip it and
               // let the loop continue on the next frame.
