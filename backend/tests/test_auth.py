@@ -169,3 +169,18 @@ def test_student_forbidden_from_admin_routes(client, student_user):
     )
     assert response.status_code == 403
     assert response.json()["detail"] == "Admin access required"
+
+def test_admin_forbidden_from_student_routes(client, admin_user):
+    headers = _auth_headers(
+        client,
+        "admin1",
+        "adminpass123",
+    )
+
+    response = client.get(
+        "/api/student/exams",
+        headers=headers,
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Student access required"
