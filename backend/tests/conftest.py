@@ -4,6 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.core.config import settings
 from app.core.security import hash_password
 from app.db.base import Base
 from app.db.session import get_db
@@ -34,6 +35,15 @@ def _reset_database():
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
+
+
+@pytest.fixture(autouse=True)
+def _isolate_evidence_storage(tmp_path, monkeypatch):
+    # Evidence files are real filesystem writes, independent of the
+    # in-memory test database above. Redirect them to a pytest-managed
+    # temp directory so test runs never write into the repository's real
+    # evidence/ folder.
+    monkeypatch.setattr(settings, "evidence_storage_root", str(tmp_path))
 
 
 @pytest.fixture

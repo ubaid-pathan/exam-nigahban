@@ -46,3 +46,10 @@ export const MONITORING_RULES = {
 }
 
 export const MONITORING_EVENT_TYPES = Object.freeze(Object.keys(MONITORING_RULES))
+
+// Evidence capture (Phase 6): a single downsized still frame is captured
+// only for a frame that already produced a stabilized monitoring event
+// above -- never captured continuously. Kept small so upload stays fast
+// and well under the backend's server-side size cap.
+export const EVIDENCE_CAPTURE_MAX_WIDTH_PX = 480
+export const EVIDENCE_JPEG_QUALITY = 0.7

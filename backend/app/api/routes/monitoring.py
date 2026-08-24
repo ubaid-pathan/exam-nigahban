@@ -1,12 +1,22 @@
+import logging
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api.routes.student_exams import get_current_student
-from app.db.models import Exam, ExamSession, MonitoringEvent, Student
+from app.db.models import Evidence, Exam, ExamSession, MonitoringEvent, Student
 from app.db.session import get_db
+from app.schemas.evidence import EvidenceResponse
 from app.schemas.monitoring import MonitoringEventCreate, MonitoringEventResponse
+from app.services.evidence_storage import (
+    EvidenceValidationError,
+    decode_and_validate_image,
+    delete_evidence_file,
+    save_evidence_image,
+)
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/monitoring", tags=["monitoring"])
 
@@ -52,9 +62,12 @@ def create_monitoring_event(
     payload: MonitoringEventCreate,
     student: Student = Depends(get_current_student),
     db: Session = Depends(get_db),
-) -> MonitoringEvent:
+) -> MonitoringEventResponse:
     _get_owned_active_session_or_404(payload.session_id, student, db)
 
+    # The event is created and committed first, independently of evidence.
+    # Nothing below this point may ever cause the event itself to fail or
+    # roll back -- evidence capture is strictly best-effort.
     event = MonitoringEvent(
         session_id=payload.session_id,
         event_type=payload.event_type,
@@ -67,4 +80,67 @@ def create_monitoring_event(
     db.add(event)
     db.commit()
     db.refresh(event)
-    return event
+
+    evidence_response = _try_attach_evidence(payload.evidence_image_base64, event, db)
+
+    return MonitoringEventResponse(
+        id=event.id,
+        session_id=event.session_id,
+        event_type=event.event_type,
+        confidence=event.confidence,
+        duration_seconds=event.duration_seconds,
+        occurrences=event.occurrences,
+        severity=event.severity,
+        source=event.source,
+        detected_at=event.detected_at,
+        status=event.status,
+        evidence=evidence_response,
+    )
+
+
+def _try_attach_evidence(
+    evidence_image_base64: str | None,
+    event: MonitoringEvent,
+    db: Session,
+) -> EvidenceResponse | None:
+    """Best-effort evidence capture for an already-committed event.
+
+    Every failure path here is swallowed (logged, not raised): a missing,
+    invalid, oversized, or unsaveable image must never affect the
+    monitoring event that was already created above.
+    """
+    if not evidence_image_base64:
+        return None
+
+    try:
+        image_bytes = decode_and_validate_image(evidence_image_base64)
+    except EvidenceValidationError as exc:
+        logger.warning("Rejected evidence image for event %s: %s", event.id, exc)
+        return None
+
+    captured_at = datetime.utcnow()
+    try:
+        relative_path = save_evidence_image(image_bytes, event.id, captured_at)
+    except OSError:
+        logger.exception("Failed to write evidence image for event %s", event.id)
+        return None
+
+    evidence = Evidence(
+        event_id=event.id,
+        image_path=relative_path,
+        captured_at=captured_at,
+        metadata_json={"content_type": "image/jpeg", "size_bytes": len(image_bytes)},
+    )
+    try:
+        db.add(evidence)
+        db.commit()
+        db.refresh(evidence)
+    except Exception:
+        db.rollback()
+        # The DB row never committed, so the file we just wrote would
+        # otherwise be orphaned -- remove it to keep disk/DB consistent.
+        delete_evidence_file(relative_path)
+        logger.exception("Failed to save evidence record for event %s", event.id)
+        return None
+
+    return EvidenceResponse.model_validate(evidence)
