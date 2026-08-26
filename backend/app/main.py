@@ -1,7 +1,16 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import auth, evidence, exams, monitoring, questions, student_exams, users
+from app.api.routes import (
+    admin_dashboard,
+    auth,
+    evidence,
+    exams,
+    monitoring,
+    questions,
+    student_exams,
+    users,
+)
 from app.core.config import settings
 
 app = FastAPI(
@@ -25,6 +34,7 @@ app.include_router(questions.router)
 app.include_router(student_exams.router)
 app.include_router(monitoring.router)
 app.include_router(evidence.router)
+app.include_router(admin_dashboard.router)
 
 
 @app.get("/health")
