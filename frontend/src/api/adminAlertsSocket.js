@@ -38,33 +38,95 @@ export function parseAdminAlertMessage(rawData) {
   return parsed
 }
 
+// Exponential backoff, capped at 30s: 1s, 2s, 4s, 8s, 16s, 30s, 30s, ...
+export function nextReconnectDelay(attempt) {
+  return Math.min(1000 * 2 ** attempt, 30000)
+}
+
 // Opens the admin alerts WebSocket using the given JWT, wiring the native
-// open/message/error/close events to the supplied callbacks. Returns null
-// (and never throws) when no token is supplied or the socket can't be
-// constructed, so callers can always call `.close()` on the result via
-// optional chaining without an extra null check.
-export function connectAdminAlertsSocket({ token, onOpen, onMessage, onError, onClose } = {}) {
+// open/message/error/close events to the supplied callbacks, and
+// automatically reconnects (with exponential backoff, capped at 30s, no
+// retry limit) after any unexpected closure. Returns null when no token
+// is supplied; otherwise returns a controller object exposing close(),
+// which permanently stops the connection (and any pending reconnect) and
+// is safe to call more than once -- this preserves the exact shape
+// AdminLayout already calls (`socket?.close()`), so it requires no change.
+//
+// WebSocketImpl exists only so tests can inject a fake WebSocket without
+// adding a testing dependency; production callers never need to pass it.
+export function connectAdminAlertsSocket({
+  token,
+  onOpen,
+  onMessage,
+  onError,
+  onClose,
+  WebSocketImpl = WebSocket,
+} = {}) {
   if (!token) {
     return null
   }
 
-  let socket
-  try {
-    socket = new WebSocket(buildAdminAlertsSocketUrl(API_BASE_URL, token))
-  } catch (error) {
-    onError?.(error)
-    return null
+  let socket = null
+  let attempt = 0
+  let reconnectTimerId = null
+  let stopped = false
+
+  const scheduleReconnect = () => {
+    if (stopped) {
+      return
+    }
+    const delay = nextReconnectDelay(attempt)
+    attempt += 1
+    if (reconnectTimerId) {
+      clearTimeout(reconnectTimerId)
+    }
+    reconnectTimerId = setTimeout(open, delay)
   }
 
-  socket.onopen = (event) => onOpen?.(event)
-  socket.onerror = (event) => onError?.(event)
-  socket.onclose = (event) => onClose?.(event)
-  socket.onmessage = (event) => {
-    const message = parseAdminAlertMessage(event.data)
-    if (message) {
-      onMessage?.(message)
+  const open = () => {
+    if (stopped) {
+      return
+    }
+    reconnectTimerId = null
+
+    try {
+      socket = new WebSocketImpl(buildAdminAlertsSocketUrl(API_BASE_URL, token))
+    } catch (error) {
+      onError?.(error)
+      scheduleReconnect()
+      return
+    }
+
+    socket.onopen = (event) => {
+      attempt = 0
+      onOpen?.(event)
+    }
+    socket.onerror = (event) => onError?.(event)
+    socket.onmessage = (event) => {
+      const message = parseAdminAlertMessage(event.data)
+      if (message) {
+        onMessage?.(message)
+      }
+    }
+    // Reconnection is scheduled only from onclose -- a failed connection
+    // always proceeds to a close event, so scheduling here too would
+    // double-schedule.
+    socket.onclose = (event) => {
+      onClose?.(event)
+      scheduleReconnect()
     }
   }
 
-  return socket
+  open()
+
+  return {
+    close() {
+      stopped = true
+      if (reconnectTimerId) {
+        clearTimeout(reconnectTimerId)
+      }
+      reconnectTimerId = null
+      socket?.close()
+    },
+  }
 }
