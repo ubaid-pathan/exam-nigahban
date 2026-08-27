@@ -13,6 +13,7 @@ from app.api.routes import (
     users,
 )
 from app.core.config import settings
+from app.websocket import router as websocket_router
 
 app = FastAPI(
     title="Exam Nigahban API",
@@ -37,6 +38,7 @@ app.include_router(monitoring.router)
 app.include_router(evidence.router)
 app.include_router(admin_dashboard.router)
 app.include_router(audit.router)
+app.include_router(websocket_router.router)
 
 
 @app.get("/health")

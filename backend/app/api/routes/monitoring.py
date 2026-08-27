@@ -24,6 +24,7 @@ from app.services.evidence_storage import (
     delete_evidence_file,
     save_evidence_image,
 )
+from app.websocket.manager import manager as websocket_manager
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +68,7 @@ def _get_owned_active_session_or_404(
     response_model=MonitoringEventResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def create_monitoring_event(
+async def create_monitoring_event(
     payload: MonitoringEventCreate,
     student: Student = Depends(get_current_student),
     db: Session = Depends(get_db),
@@ -90,6 +91,8 @@ def create_monitoring_event(
     db.commit()
     db.refresh(event)
 
+    await _broadcast_monitoring_event(event)
+
     evidence_response = _try_attach_evidence(payload.evidence_image_base64, event, db)
 
     return MonitoringEventResponse(
@@ -105,6 +108,34 @@ def create_monitoring_event(
         status=event.status,
         evidence=evidence_response,
     )
+
+
+async def _broadcast_monitoring_event(event: MonitoringEvent) -> None:
+    """Best-effort admin alert for an already-committed MonitoringEvent.
+
+    Runs after the event is fully persisted (see create_monitoring_event)
+    and must never affect the HTTP response: no connected admins, a
+    disconnected socket, or any other broadcast failure is swallowed here
+    exactly like _try_attach_evidence swallows evidence-capture failures.
+    Only non-sensitive admin-alert metadata is sent -- no evidence image
+    data, filesystem paths, or student/auth fields.
+    """
+    try:
+        await websocket_manager.broadcast(
+            {
+                "type": "monitoring_event",
+                "event_id": event.id,
+                "session_id": event.session_id,
+                "event_type": event.event_type,
+                "severity": event.severity,
+                "status": event.status,
+            }
+        )
+    except Exception:
+        logger.exception(
+            "Failed to broadcast monitoring event %s to admin WebSocket clients",
+            event.id,
+        )
 
 
 def _try_attach_evidence(
