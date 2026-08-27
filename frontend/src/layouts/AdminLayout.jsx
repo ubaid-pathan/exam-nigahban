@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { TOKEN_KEY } from '../api/client'
 import { connectAdminAlertsSocket } from '../api/adminAlertsSocket'
+import LiveAlertIndicator from '../components/LiveAlertIndicator'
 
 export default function AdminLayout() {
   const { user, logout } = useAuth()
@@ -64,6 +65,7 @@ export default function AdminLayout() {
             </NavLink>
           </div>
           <div className="d-flex align-items-center gap-3">
+            <LiveAlertIndicator latestAlert={latestAlert} />
             {user && (
               <span className="text-light small">
                 {user.username} <span className="badge text-bg-primary ms-1">Admin</span>
