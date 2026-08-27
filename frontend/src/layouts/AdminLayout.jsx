@@ -25,6 +25,9 @@ export default function AdminLayout() {
             <NavLink to="/admin/monitoring" className={navLinkClass}>
               Monitoring Events
             </NavLink>
+            <NavLink to="/admin/audit" className={navLinkClass}>
+              Audit History
+            </NavLink>
           </div>
           <div className="d-flex align-items-center gap-3">
             {user && (

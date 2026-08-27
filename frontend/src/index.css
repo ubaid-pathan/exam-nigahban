@@ -74,12 +74,48 @@ body {
 .modal-backdrop-manual {
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba(0, 0, 0, 0.65);
   z-index: 1050;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 1rem;
+}
+
+/* Bootstrap's .modal-content/.modal-header/.modal-footer read their
+   background/border colors from --bs-modal-* custom properties that
+   Bootstrap only ever defines on the (unused, JS-driven) .modal class.
+   This hand-rolled dialog never applies .modal, so those variables are
+   otherwise undefined and the dialog renders fully transparent. Scoped
+   here (rather than on .modal-backdrop-manual) so only the Evidence
+   Review modal is affected -- ConfirmModal.jsx is untouched. */
+.evidence-review-modal-content {
+  --bs-modal-bg: #fff;
+  --bs-modal-color: var(--bs-body-color);
+  --bs-modal-border-color: var(--bs-border-color-translucent);
+  --bs-modal-header-border-color: var(--bs-border-color);
+  --bs-modal-footer-border-color: var(--bs-border-color);
+  --bs-modal-footer-bg: #fff;
+  --bs-modal-padding: 1rem;
+  --bs-modal-header-padding: 1rem 1rem;
+  --bs-modal-header-padding-x: 1rem;
+  --bs-modal-header-padding-y: 1rem;
+  --bs-modal-footer-gap: 0.5rem;
+  --bs-modal-border-width: var(--bs-border-width);
+  --bs-modal-border-radius: var(--bs-border-radius-lg);
+  /* .modal-content has no max-height/overflow handling without Bootstrap's
+     JS-driven .modal-dialog-scrollable mechanism (which itself needs
+     --bs-modal-margin, left undefined here). Capping height directly and
+     letting only .modal-body scroll keeps the header/footer -- already
+     flex-shrink:0 in Bootstrap's own unconditional CSS -- visible on
+     short viewports (1280x720 / 1366x768 class screens). */
+  max-height: calc(100vh - 2rem);
+  overflow: hidden;
+}
+
+.evidence-review-modal-content .modal-body {
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .no-select {

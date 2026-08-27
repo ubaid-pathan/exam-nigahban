@@ -75,8 +75,11 @@ export default function EvidenceReviewPanel({ event, onClose, onReviewed }) {
       aria-modal="true"
       aria-labelledby="evidence-review-title"
     >
-      <div className="modal-dialog modal-lg" style={{ margin: 0, width: '100%', maxWidth: '700px' }}>
-        <div className="modal-content">
+      <div
+        className="modal-dialog modal-lg"
+        style={{ margin: 0, width: '100%', maxWidth: 'min(760px, 92vw)' }}
+      >
+        <div className="modal-content evidence-review-modal-content">
           <div className="modal-header">
             <h5 className="modal-title" id="evidence-review-title">
               Evidence Review
@@ -90,8 +93,8 @@ export default function EvidenceReviewPanel({ event, onClose, onReviewed }) {
             />
           </div>
           <div className="modal-body">
-            <div className="row g-3">
-              <div className="col-12 col-md-6">
+            <div className="row g-3 align-items-start">
+              <div className="col-12 col-md-5">
                 {imageLoading && <p className="text-muted small mb-0">Loading evidence image...</p>}
                 {imageError && <p className="text-danger small mb-0">{imageError}</p>}
                 {imageUrl && (
@@ -102,8 +105,8 @@ export default function EvidenceReviewPanel({ event, onClose, onReviewed }) {
                   />
                 )}
               </div>
-              <div className="col-12 col-md-6">
-                <dl className="row small mb-0">
+              <div className="col-12 col-md-7">
+                <dl className="row gy-2 small mb-0">
                   <dt className="col-5">Student</dt>
                   <dd className="col-7">
                     {event.student_full_name} ({event.student_id})
@@ -140,7 +143,7 @@ export default function EvidenceReviewPanel({ event, onClose, onReviewed }) {
               </label>
               <textarea
                 id="review-reason"
-                className="form-control"
+                className="form-control form-control-sm"
                 rows={2}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
@@ -151,12 +154,9 @@ export default function EvidenceReviewPanel({ event, onClose, onReviewed }) {
             {submitError && <p className="text-danger small mt-2 mb-0">{submitError}</p>}
           </div>
           <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={onClose} disabled={submitting}>
-              Close
-            </button>
             <button
               type="button"
-              className="btn btn-outline-secondary"
+              className="btn btn-outline-dark"
               onClick={() => handleReview('IGNORED')}
               disabled={submitting}
             >
@@ -164,7 +164,7 @@ export default function EvidenceReviewPanel({ event, onClose, onReviewed }) {
             </button>
             <button
               type="button"
-              className="btn btn-danger"
+              className="btn btn-success"
               onClick={() => handleReview('CONFIRMED')}
               disabled={submitting}
             >
