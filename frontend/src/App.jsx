@@ -7,6 +7,7 @@ import NotFoundPage from './pages/NotFoundPage'
 import AdminLayout from './layouts/AdminLayout'
 import DashboardPage from './pages/admin/DashboardPage'
 import MonitoringEventsPage from './pages/admin/MonitoringEventsPage'
+import AuditHistoryPage from './pages/admin/AuditHistoryPage'
 import StudentLayout from './layouts/StudentLayout'
 import StudentHome from './pages/student/StudentHome'
 import ExamListPage from './pages/student/ExamListPage'
@@ -27,6 +28,7 @@ export default function App() {
           <Route element={<AdminLayout />}>
             <Route path="/admin" element={<DashboardPage />} />
             <Route path="/admin/monitoring" element={<MonitoringEventsPage />} />
+            <Route path="/admin/audit" element={<AuditHistoryPage />} />
           </Route>
         </Route>
 

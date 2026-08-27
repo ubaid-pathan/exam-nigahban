@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import (
     admin_dashboard,
+    audit,
     auth,
     evidence,
     exams,
@@ -35,6 +36,7 @@ app.include_router(student_exams.router)
 app.include_router(monitoring.router)
 app.include_router(evidence.router)
 app.include_router(admin_dashboard.router)
+app.include_router(audit.router)
 
 
 @app.get("/health")
