@@ -1,9 +1,43 @@
+import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { TOKEN_KEY } from '../api/client'
+import { connectAdminAlertsSocket } from '../api/adminAlertsSocket'
 
 export default function AdminLayout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const [latestAlert, setLatestAlert] = useState(null)
+
+  // AdminLayout stays mounted across every /admin/* page, so this is the
+  // one place a single persistent connection makes sense -- opened only
+  // for an authenticated admin with a real token, closed on cleanup
+  // (covers unmount, logout, and React StrictMode's dev-mode double
+  // mount/cleanup pass alike, since each effect run closes its own
+  // `socket` instance rather than a shared one).
+  useEffect(() => {
+    if (!user || user.role !== 'admin') {
+      return undefined
+    }
+
+    const token = localStorage.getItem(TOKEN_KEY)
+    if (!token) {
+      return undefined
+    }
+
+    const socket = connectAdminAlertsSocket({
+      token,
+      onMessage: (message) => setLatestAlert(message),
+      onError: () => {
+        // Best-effort real-time channel: a connection error must never
+        // break the admin UI. Automatic reconnection is a later phase.
+      },
+    })
+
+    return () => {
+      socket?.close()
+    }
+  }, [user])
 
   const handleLogout = async () => {
     await logout()
@@ -47,7 +81,7 @@ export default function AdminLayout() {
       </nav>
       <main className="app-main">
         <div className="container">
-          <Outlet />
+          <Outlet context={{ latestAlert }} />
         </div>
       </main>
     </div>
