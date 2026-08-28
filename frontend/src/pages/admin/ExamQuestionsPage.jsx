@@ -9,6 +9,16 @@ import EmptyState from '../../components/EmptyState'
 import ConfirmModal from '../../components/ConfirmModal'
 import QuestionFormModal from '../../components/QuestionFormModal'
 
+const STATUS_BADGE_CLASS = {
+  draft: 'text-bg-secondary',
+  active: 'text-bg-success',
+  inactive: 'text-bg-warning',
+}
+
+function statusBadgeClass(examStatus) {
+  return STATUS_BADGE_CLASS[examStatus] || 'text-bg-secondary'
+}
+
 function statusLabel(examStatus) {
   if (!examStatus) return 'Unknown'
   return examStatus.charAt(0).toUpperCase() + examStatus.slice(1)
@@ -143,12 +153,19 @@ export default function ExamQuestionsPage() {
           >
             &larr; Back to Exams
           </button>
-          <h1 className="h4 mb-1">{exam ? `Questions — ${exam.title}` : 'Exam Questions'}</h1>
+          <h1 className="h4 mb-2">{exam ? `Questions — ${exam.title}` : 'Exam Questions'}</h1>
           {exam && (
-            <p className="text-muted small mb-0">
-              {exam.duration_minutes} min &middot; {questions.length} question
-              {questions.length === 1 ? '' : 's'} &middot; Status: {statusLabel(exam.status)}
-            </p>
+            <div className="d-flex align-items-center gap-2 flex-wrap">
+              <span className="badge text-bg-light text-dark border">
+                {exam.duration_minutes} min
+              </span>
+              <span className={`badge ${statusBadgeClass(exam.status)}`}>
+                {statusLabel(exam.status)}
+              </span>
+              <span className="badge text-bg-light text-dark border">
+                {questions.length} question{questions.length === 1 ? '' : 's'}
+              </span>
+            </div>
           )}
         </div>
         {!loading && !error && (
@@ -180,52 +197,64 @@ export default function ExamQuestionsPage() {
       )}
 
       {!loading && !error && questions.length > 0 && (
-        <div className="table-responsive">
-          <table className="table table-sm table-hover align-middle">
-            <thead>
-              <tr>
-                <th>Question</th>
-                <th>Option A</th>
-                <th>Option B</th>
-                <th>Option C</th>
-                <th>Option D</th>
-                <th>Correct</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {questions.map((question) => (
-                <tr key={question.id}>
-                  <td>{question.question_text}</td>
-                  <td>{question.option_a}</td>
-                  <td>{question.option_b}</td>
-                  <td>{question.option_c}</td>
-                  <td>{question.option_d}</td>
-                  <td>
-                    <span className="badge text-bg-success">{question.correct_answer}</span>
-                  </td>
-                  <td>
-                    <div className="d-flex gap-2 flex-wrap">
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-outline-secondary"
-                        onClick={() => openEditForm(question)}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-outline-danger"
-                        onClick={() => openDeleteConfirm(question)}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="card shadow-sm">
+          <div className="card-header bg-white d-flex justify-content-between align-items-center">
+            <span className="fw-semibold">Questions</span>
+            <span className="text-muted small">
+              {questions.length} question{questions.length === 1 ? '' : 's'}
+            </span>
+          </div>
+          <div className="card-body p-0">
+            <div className="table-responsive">
+              <table className="table table-hover align-middle mb-0">
+                <thead className="table-light">
+                  <tr>
+                    <th className="ps-3">Question</th>
+                    <th>Option A</th>
+                    <th>Option B</th>
+                    <th>Option C</th>
+                    <th>Option D</th>
+                    <th>Correct</th>
+                    <th className="pe-3">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {questions.map((question) => (
+                    <tr key={question.id}>
+                      <td className="ps-3 text-wrap-cell">{question.question_text}</td>
+                      <td className="text-wrap-cell">{question.option_a}</td>
+                      <td className="text-wrap-cell">{question.option_b}</td>
+                      <td className="text-wrap-cell">{question.option_c}</td>
+                      <td className="text-wrap-cell">{question.option_d}</td>
+                      <td>
+                        <span className="badge text-bg-success">
+                          {question.correct_answer}
+                        </span>
+                      </td>
+                      <td className="pe-3">
+                        <div className="d-flex gap-2 flex-wrap">
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-secondary"
+                            onClick={() => openEditForm(question)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-danger"
+                            onClick={() => openDeleteConfirm(question)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 
