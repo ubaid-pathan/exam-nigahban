@@ -74,6 +74,50 @@ def test_get_exam(client, admin_user):
     assert response.json()["id"] == exam_id
 
 
+def test_create_exam_question_count_is_zero(client, admin_user):
+    headers = _auth_headers(client, "admin1", "adminpass123")
+    response = _create_exam(client, headers)
+    assert response.json()["question_count"] == 0
+
+
+def test_list_exams_includes_question_count(client, admin_user):
+    headers = _auth_headers(client, "admin1", "adminpass123")
+    exam_a_id = _create_exam(client, headers, title="Exam A").json()["id"]
+    exam_b_id = _create_exam(client, headers, title="Exam B").json()["id"]
+    _create_question(client, headers, exam_a_id, question_text="Q1")
+    _create_question(client, headers, exam_a_id, question_text="Q2")
+
+    response = client.get("/api/exams", headers=headers)
+    assert response.status_code == 200
+    counts_by_id = {exam["id"]: exam["question_count"] for exam in response.json()}
+    assert counts_by_id[exam_a_id] == 2
+    assert counts_by_id[exam_b_id] == 0
+
+
+def test_get_exam_includes_question_count(client, admin_user):
+    headers = _auth_headers(client, "admin1", "adminpass123")
+    exam_id = _create_exam(client, headers).json()["id"]
+    _create_question(client, headers, exam_id)
+
+    response = client.get(f"/api/exams/{exam_id}", headers=headers)
+    assert response.status_code == 200
+    assert response.json()["question_count"] == 1
+
+
+def test_update_exam_preserves_question_count(client, admin_user):
+    headers = _auth_headers(client, "admin1", "adminpass123")
+    exam_id = _create_exam(client, headers).json()["id"]
+    _create_question(client, headers, exam_id)
+
+    response = client.put(
+        f"/api/exams/{exam_id}",
+        json={"title": "Updated Exam", "description": "Updated", "duration_minutes": 90},
+        headers=headers,
+    )
+    assert response.status_code == 200
+    assert response.json()["question_count"] == 1
+
+
 def test_update_exam(client, admin_user):
     headers = _auth_headers(client, "admin1", "adminpass123")
     exam_id = _create_exam(client, headers).json()["id"]

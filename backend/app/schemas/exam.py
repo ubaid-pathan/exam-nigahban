@@ -31,3 +31,4 @@ class ExamResponse(BaseModel):
     duration_minutes: int
     status: str
     created_at: datetime
+    question_count: int = 0

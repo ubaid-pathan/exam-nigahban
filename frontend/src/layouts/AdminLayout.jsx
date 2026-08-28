@@ -60,6 +60,9 @@ export default function AdminLayout() {
             <NavLink to="/admin/monitoring" className={navLinkClass}>
               Monitoring Events
             </NavLink>
+            <NavLink to="/admin/exams" className={navLinkClass}>
+              Exams
+            </NavLink>
             <NavLink to="/admin/audit" className={navLinkClass}>
               Audit History
             </NavLink>
