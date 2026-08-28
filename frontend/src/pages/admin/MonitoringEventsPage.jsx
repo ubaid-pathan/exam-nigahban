@@ -211,7 +211,7 @@ export default function MonitoringEventsPage() {
                     <td className="text-nowrap">{new Date(item.detected_at).toLocaleString()}</td>
                     <td>
                       {item.evidence_id != null ? (
-                        <span className="badge text-bg-info">Available</span>
+                        <span className="badge text-bg-success">Available</span>
                       ) : (
                         <span className="text-muted small">None</span>
                       )}
