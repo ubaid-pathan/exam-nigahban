@@ -6,7 +6,12 @@ export default function ConfirmModal({
   onConfirm,
   onCancel,
   confirmDisabled = false,
+  size,
 }) {
+  const dialogClassName = size
+    ? `modal-dialog modal-${size}`
+    : 'modal-dialog'
+
   return (
     <div
       className="modal-backdrop-manual"
@@ -14,7 +19,7 @@ export default function ConfirmModal({
       aria-modal="true"
       aria-labelledby="confirm-modal-title"
     >
-      <div className="modal-dialog" style={{ margin: 0 }}>
+      <div className={dialogClassName} style={{ margin: 0 }}>
         <div className="modal-content">
           <div className="modal-header">
             <h5 className="modal-title" id="confirm-modal-title">

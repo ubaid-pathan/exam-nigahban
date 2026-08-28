@@ -82,33 +82,48 @@ body {
   padding: 1rem;
 }
 
-/* Bootstrap's .modal-content/.modal-header/.modal-footer read their
-   background/border colors from --bs-modal-* custom properties that
+/* Bootstrap's .modal-content/.modal-header/.modal-body/.modal-footer read
+   their background/border/spacing from --bs-modal-* custom properties that
    Bootstrap only ever defines on the (unused, JS-driven) .modal class.
-   This hand-rolled dialog never applies .modal, so those variables are
-   otherwise undefined and the dialog renders fully transparent. Scoped
-   here (rather than on .modal-backdrop-manual) so only the Evidence
-   Review modal is affected -- ConfirmModal.jsx is untouched. */
-.evidence-review-modal-content {
-  --bs-modal-bg: #fff;
+   None of this app's hand-rolled dialogs (ConfirmModal.jsx and, inside it,
+   every form/confirmation built on top -- plus EvidenceReviewPanel.jsx)
+   ever render .modal, so those variables are otherwise undefined and every
+   manual modal would render with a transparent background and no border.
+   Reproducing Bootstrap's own default values here, scoped to any
+   .modal-content inside .modal-backdrop-manual, fixes every manual modal
+   in the app at once. box-shadow is added explicitly since Bootstrap
+   defines a --bs-modal-box-shadow variable but never actually applies it
+   to .modal-content -- without this, JS Bootstrap modals get elevation
+   this hand-rolled structure otherwise wouldn't. */
+.modal-backdrop-manual .modal-content {
   --bs-modal-color: var(--bs-body-color);
+  --bs-modal-bg: #fff;
   --bs-modal-border-color: var(--bs-border-color-translucent);
-  --bs-modal-header-border-color: var(--bs-border-color);
-  --bs-modal-footer-border-color: var(--bs-border-color);
-  --bs-modal-footer-bg: #fff;
+  --bs-modal-border-width: var(--bs-border-width);
+  --bs-modal-border-radius: var(--bs-border-radius-lg);
   --bs-modal-padding: 1rem;
   --bs-modal-header-padding: 1rem 1rem;
   --bs-modal-header-padding-x: 1rem;
   --bs-modal-header-padding-y: 1rem;
+  --bs-modal-header-border-color: var(--bs-border-color);
+  --bs-modal-header-border-width: var(--bs-border-width);
+  --bs-modal-title-line-height: 1.5;
   --bs-modal-footer-gap: 0.5rem;
-  --bs-modal-border-width: var(--bs-border-width);
-  --bs-modal-border-radius: var(--bs-border-radius-lg);
-  /* .modal-content has no max-height/overflow handling without Bootstrap's
-     JS-driven .modal-dialog-scrollable mechanism (which itself needs
-     --bs-modal-margin, left undefined here). Capping height directly and
-     letting only .modal-body scroll keeps the header/footer -- already
-     flex-shrink:0 in Bootstrap's own unconditional CSS -- visible on
-     short viewports (1280x720 / 1366x768 class screens). */
+  --bs-modal-footer-bg: #fff;
+  --bs-modal-footer-border-color: var(--bs-border-color);
+  --bs-modal-footer-border-width: var(--bs-border-width);
+  box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.25);
+}
+
+/* .modal-content has no max-height/overflow handling without Bootstrap's
+   JS-driven .modal-dialog-scrollable mechanism (which itself needs
+   --bs-modal-margin, left undefined here). Capping height directly and
+   letting only .modal-body scroll keeps the header/footer -- already
+   flex-shrink:0 in Bootstrap's own unconditional CSS -- visible on short
+   viewports (1280x720 / 1366x768 class screens). Scoped to the Evidence
+   Review modal only, since it's the one with tall image content; other
+   manual modals are short enough not to need it. */
+.evidence-review-modal-content {
   max-height: calc(100vh - 2rem);
   overflow: hidden;
 }
@@ -120,4 +135,12 @@ body {
 
 .no-select {
   user-select: none;
+}
+
+/* Caps a table cell's width so one very long value (e.g. question text)
+   can't blow out the whole table, while still wrapping onto multiple
+   lines rather than truncating -- no data is ever hidden from view. */
+.text-wrap-cell {
+  max-width: 320px;
+  white-space: normal;
 }

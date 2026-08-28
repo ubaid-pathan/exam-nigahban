@@ -157,8 +157,13 @@ export default function ExamManagementPage() {
 
   return (
     <div>
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h1 className="h4 mb-0">Exam Management</h1>
+      <div className="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-2">
+        <div>
+          <h1 className="h4 mb-1">Exam Management</h1>
+          <p className="text-muted small mb-0">
+            Create, organize, and manage your examinations.
+          </p>
+        </div>
         <button type="button" className="btn btn-primary btn-sm" onClick={openCreateForm}>
           Create Exam
         </button>
@@ -186,81 +191,103 @@ export default function ExamManagementPage() {
       )}
 
       {!loading && !error && exams.length > 0 && (
-        <div className="table-responsive">
-          <table className="table table-sm table-hover align-middle">
-            <thead>
-              <tr>
-                <th>Title</th>
-                <th>Duration</th>
-                <th>Status</th>
-                <th>Questions</th>
-                <th>Created At</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {exams.map((exam) => (
-                <tr key={exam.id}>
-                  <td>
-                    {exam.title}
-                    {exam.description && (
-                      <div className="text-muted small">{exam.description}</div>
-                    )}
-                  </td>
-                  <td>{exam.duration_minutes} min</td>
-                  <td>
-                    <span className={`badge ${statusBadgeClass(exam.status)}`}>
-                      {statusLabel(exam.status)}
-                    </span>
-                  </td>
-                  <td>{exam.question_count}</td>
-                  <td className="text-nowrap">{new Date(exam.created_at).toLocaleString()}</td>
-                  <td>
-                    <div className="d-flex gap-2 flex-wrap">
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-outline-secondary"
-                        onClick={() => openEditForm(exam)}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-outline-primary"
-                        onClick={() => navigate(`/admin/exams/${exam.id}/questions`)}
-                      >
-                        Manage Questions
-                      </button>
-                      {exam.status === 'active' ? (
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-outline-warning"
-                          onClick={() => openPendingAction('deactivate', exam)}
-                        >
-                          Deactivate
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-outline-success"
-                          onClick={() => openPendingAction('activate', exam)}
-                        >
-                          Activate
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-outline-danger"
-                        onClick={() => openPendingAction('delete', exam)}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="card shadow-sm">
+          <div className="card-header bg-white d-flex justify-content-between align-items-center">
+            <span className="fw-semibold">All Exams</span>
+            <span className="text-muted small">
+              {exams.length} exam{exams.length === 1 ? '' : 's'}
+            </span>
+          </div>
+          <div className="card-body p-0">
+            <div className="table-responsive">
+              <table className="table table-hover align-middle mb-0">
+                <thead className="table-light">
+                  <tr>
+                    <th className="ps-3">Title</th>
+                    <th>Duration</th>
+                    <th>Status</th>
+                    <th>Questions</th>
+                    <th>Created</th>
+                    <th className="pe-3">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {exams.map((exam) => (
+                    <tr key={exam.id}>
+                      <td className="ps-3">
+                        <div className="fw-semibold">{exam.title}</div>
+                        {exam.description && (
+                          <div className="text-muted small">{exam.description}</div>
+                        )}
+                      </td>
+                      <td>{exam.duration_minutes} min</td>
+                      <td>
+                        <span className={`badge ${statusBadgeClass(exam.status)}`}>
+                          {statusLabel(exam.status)}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="badge text-bg-light text-dark border">
+                          {exam.question_count} question{exam.question_count === 1 ? '' : 's'}
+                        </span>
+                      </td>
+                      <td className="text-nowrap text-muted small">
+                        {new Date(exam.created_at).toLocaleDateString(undefined, {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric',
+                        })}
+                      </td>
+                      <td className="pe-3">
+                        <div className="d-flex flex-wrap align-items-center gap-2">
+                          <div className="btn-group btn-group-sm" role="group" aria-label="Exam actions">
+                            <button
+                              type="button"
+                              className="btn btn-outline-secondary"
+                              onClick={() => openEditForm(exam)}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-outline-primary"
+                              onClick={() => navigate(`/admin/exams/${exam.id}/questions`)}
+                            >
+                              Questions
+                            </button>
+                            {exam.status === 'active' ? (
+                              <button
+                                type="button"
+                                className="btn btn-outline-warning"
+                                onClick={() => openPendingAction('deactivate', exam)}
+                              >
+                                Deactivate
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                className="btn btn-outline-success"
+                                onClick={() => openPendingAction('activate', exam)}
+                              >
+                                Activate
+                              </button>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-danger"
+                            onClick={() => openPendingAction('delete', exam)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 
@@ -268,53 +295,56 @@ export default function ExamManagementPage() {
         <ConfirmModal
           title={formMode === 'create' ? 'Create Exam' : 'Edit Exam'}
           confirmLabel={
-            formSubmitting ? 'Saving...' : formMode === 'create' ? 'Create' : 'Save Changes'
+            formSubmitting ? 'Saving...' : formMode === 'create' ? 'Create Exam' : 'Save Changes'
           }
           confirmDisabled={formSubmitting}
           onConfirm={handleFormSubmit}
           onCancel={closeForm}
+          size="lg"
         >
-          <div className="mb-3">
-            <label htmlFor="exam-title" className="form-label">
-              Title
-            </label>
-            <input
-              id="exam-title"
-              type="text"
-              className="form-control"
-              value={formValues.title}
-              maxLength={150}
-              disabled={formSubmitting}
-              onChange={(e) => setFormValues((f) => ({ ...f, title: e.target.value }))}
-            />
+          <div className="row g-3 mb-3">
+            <div className="col-md-8">
+              <label htmlFor="exam-title" className="form-label fw-semibold">
+                Title
+              </label>
+              <input
+                id="exam-title"
+                type="text"
+                className="form-control"
+                value={formValues.title}
+                maxLength={150}
+                disabled={formSubmitting}
+                onChange={(e) => setFormValues((f) => ({ ...f, title: e.target.value }))}
+              />
+            </div>
+            <div className="col-md-4">
+              <label htmlFor="exam-duration" className="form-label fw-semibold">
+                Duration (minutes)
+              </label>
+              <input
+                id="exam-duration"
+                type="number"
+                min="1"
+                className="form-control"
+                value={formValues.durationMinutes}
+                disabled={formSubmitting}
+                onChange={(e) =>
+                  setFormValues((f) => ({ ...f, durationMinutes: e.target.value }))
+                }
+              />
+            </div>
           </div>
           <div className="mb-3">
-            <label htmlFor="exam-description" className="form-label">
+            <label htmlFor="exam-description" className="form-label fw-semibold">
               Description
             </label>
             <textarea
               id="exam-description"
               className="form-control"
-              rows={3}
+              rows={4}
               value={formValues.description}
               disabled={formSubmitting}
               onChange={(e) => setFormValues((f) => ({ ...f, description: e.target.value }))}
-            />
-          </div>
-          <div className="mb-3">
-            <label htmlFor="exam-duration" className="form-label">
-              Duration (minutes)
-            </label>
-            <input
-              id="exam-duration"
-              type="number"
-              min="1"
-              className="form-control"
-              value={formValues.durationMinutes}
-              disabled={formSubmitting}
-              onChange={(e) =>
-                setFormValues((f) => ({ ...f, durationMinutes: e.target.value }))
-              }
             />
           </div>
           {formError && (

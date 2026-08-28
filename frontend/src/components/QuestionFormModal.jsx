@@ -40,9 +40,10 @@ export default function QuestionFormModal({
       confirmDisabled={submitting}
       onConfirm={handleConfirm}
       onCancel={onCancel}
+      size="lg"
     >
       <div className="mb-3">
-        <label htmlFor="question-text" className="form-label">
+        <label htmlFor="question-text" className="form-label fw-semibold">
           Question Text
         </label>
         <textarea
@@ -55,25 +56,27 @@ export default function QuestionFormModal({
         />
       </div>
 
-      {OPTION_LETTERS.map((letter) => (
-        <div className="mb-3" key={letter}>
-          <label htmlFor={`question-option-${letter}`} className="form-label">
-            Option {letter.toUpperCase()}
-          </label>
-          <input
-            id={`question-option-${letter}`}
-            type="text"
-            className="form-control"
-            maxLength={500}
-            value={values[`option_${letter}`]}
-            disabled={submitting}
-            onChange={handleFieldChange(`option_${letter}`)}
-          />
-        </div>
-      ))}
+      <div className="row g-3 mb-3">
+        {OPTION_LETTERS.map((letter) => (
+          <div className="col-md-6" key={letter}>
+            <label htmlFor={`question-option-${letter}`} className="form-label fw-semibold">
+              Option {letter.toUpperCase()}
+            </label>
+            <input
+              id={`question-option-${letter}`}
+              type="text"
+              className="form-control"
+              maxLength={500}
+              value={values[`option_${letter}`]}
+              disabled={submitting}
+              onChange={handleFieldChange(`option_${letter}`)}
+            />
+          </div>
+        ))}
+      </div>
 
       <div className="mb-3">
-        <label htmlFor="question-correct-answer" className="form-label">
+        <label htmlFor="question-correct-answer" className="form-label fw-semibold">
           Correct Answer
         </label>
         <select
