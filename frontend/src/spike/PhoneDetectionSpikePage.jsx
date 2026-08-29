@@ -8,6 +8,7 @@ import {
   DEFAULT_CONFIDENCE_THRESHOLD,
   DEFAULT_IOU_THRESHOLD,
   INPUT_SIZE,
+  RECOMMENDED_YOLOX_TARGET_FPS,
 } from './objectDetection/constants'
 import { decodeDetections } from './objectDetection/decode'
 import { boxToSourcePixels, letterboxImageToTensor } from './objectDetection/preprocess'
@@ -18,13 +19,15 @@ import {
   summarizeMemory,
 } from './objectDetection/performanceStats'
 import { describeExecutionProvider, getYoloxSession, runInference } from './objectDetection/yoloxModel'
+import { createYoloxWorkerClient } from './objectDetection/yoloxWorkerClient'
 
 // Developer-only AI inference spike (Milestone 2) extended with a real-time
-// camera performance harness (Milestone 3). NOT linked from any production
-// nav, NOT wired into TakeExamPage or the monitoring event pipeline, NOT
-// sending anything to the backend. The MediaPipe side reuses
-// monitoring/faceMonitorService.js and monitoring/constants.js exactly as
-// they already exist in production -- neither file is modified here.
+// camera performance harness (Milestone 3) and a Web Worker YOLOX prototype
+// (Milestone 4). NOT linked from any production nav, NOT wired into
+// TakeExamPage or the monitoring event pipeline, NOT sending anything to
+// the backend. The MediaPipe side reuses monitoring/faceMonitorService.js
+// and monitoring/constants.js exactly as they already exist in production
+// -- neither file is modified here.
 
 function now() {
   return performance.now()
@@ -39,20 +42,34 @@ function readMemorySample() {
   return mem ? { usedJSHeapSize: mem.usedJSHeapSize } : null
 }
 
-// Milestone 3 frame-scheduling comparison. "every" intentionally has no
-// throttle at all -- it exists only as the worst-case comparison point the
-// milestone asked for, not a realistic candidate.
+// Milestone 3 frame-scheduling comparison, extended in Milestone 5.1 with
+// the ~6 FPS and ~4 FPS candidates needed to find the lowest reliable rate
+// under combined MediaPipe + YOLOX load. "every" intentionally has no
+// throttle at all -- it exists only as the worst-case comparison point
+// Milestone 3 asked for, not a realistic candidate.
 const SCHEDULE_PRESETS = {
   every: { label: 'Every frame (no throttle)', intervalMs: 0 },
+  fps4: { label: '~4 FPS', intervalMs: 250 },
   fps5: { label: '~5 FPS', intervalMs: 200 },
+  fps6: { label: '~6 FPS', intervalMs: 167 },
   fps8: { label: '~8 FPS', intervalMs: 125 },
   fps10: { label: '~10 FPS', intervalMs: 100 },
 }
+
+// Derived from the single source of truth in constants.js rather than
+// repeating the number here -- the default schedule selection below always
+// matches whatever Milestone 5.1 (or a future re-benchmark) recommends.
+const RECOMMENDED_SCHEDULE_KEY = `fps${RECOMMENDED_YOLOX_TARGET_FPS}`
 
 const PERF_MODES = {
   yolox: 'YOLOX only',
   mediapipe: 'MediaPipe only',
   combined: 'YOLOX + MediaPipe combined',
+}
+
+const YOLOX_EXECUTIONS = {
+  main: 'Main thread',
+  worker: 'Web Worker',
 }
 
 export default function PhoneDetectionSpikePage() {
@@ -68,9 +85,20 @@ export default function PhoneDetectionSpikePage() {
   const [inferenceError, setInferenceError] = useState('')
   const [confidenceThreshold, setConfidenceThreshold] = useState(DEFAULT_CONFIDENCE_THRESHOLD)
 
+  // --- Milestone 4: Web Worker model state ---
+  const [workerModelStatus, setWorkerModelStatus] = useState('idle') // idle | loading | ready | error
+  const [workerModelError, setWorkerModelError] = useState('')
+  const [workerProviderInfo, setWorkerProviderInfo] = useState(null)
+  const [workerLoadMs, setWorkerLoadMs] = useState(null)
+  const [workerImgDetections, setWorkerImgDetections] = useState([])
+  const [workerImgRunning, setWorkerImgRunning] = useState(false)
+  const [workerImgError, setWorkerImgError] = useState('')
+  const [workerImgInferenceMs, setWorkerImgInferenceMs] = useState(null)
+
   // --- Milestone 3: real-time camera performance harness state ---
   const [perfMode, setPerfMode] = useState('yolox')
-  const [schedulePreset, setSchedulePreset] = useState('fps8')
+  const [schedulePreset, setSchedulePreset] = useState(RECOMMENDED_SCHEDULE_KEY)
+  const [yoloxExecution, setYoloxExecution] = useState('main')
   const [perfCameraOn, setPerfCameraOn] = useState(false)
   const [perfCameraStatus, setPerfCameraStatus] = useState('idle')
   const [perfRunning, setPerfRunning] = useState(false)
@@ -85,6 +113,19 @@ export default function PhoneDetectionSpikePage() {
   const imgElRef = useRef(null)
   const canvasRef = useRef(null)
   const inferenceCountRef = useRef(0)
+
+  // Milestone 4 refs
+  const workerClientRef = useRef(null)
+  const workerCanvasRef = useRef(null)
+  const yoloxExecutionRef = useRef('main')
+
+  function getWorkerClient() {
+    if (!workerClientRef.current) {
+      workerClientRef.current = createYoloxWorkerClient()
+      workerClientRef.current.setOnError((message) => setPerfError(`Worker: ${message}`))
+    }
+    return workerClientRef.current
+  }
 
   // Milestone 3 refs
   const perfVideoRef = useRef(null)
@@ -113,6 +154,17 @@ export default function PhoneDetectionSpikePage() {
   const perfModeRef = useRef('yolox')
   const yoloxIntervalMsRef = useRef(0)
   const cameraSizeCapturedRef = useRef(false)
+  const yoloxReadyRef = useRef(false)
+
+  // Milestone 5.4: the latest MediaPipe face count and YOLOX detections are
+  // written here on every processed frame (~4-4.3 times/sec combined)
+  // instead of going through setState directly -- per Milestone 5.3's
+  // finding that doing so was re-rendering this entire (large,
+  // non-memoized) page on every detection. updateLiveStatsDisplay copies
+  // these into React state at its existing 500ms cadence instead, so the
+  // displayed values still update regularly, just not on every single frame.
+  const perfFaceCountRef = useRef(null)
+  const perfDetectionsRef = useRef([])
 
   const handleLoadModel = useCallback(async () => {
     setModelStatus('loading')
@@ -131,10 +183,29 @@ export default function PhoneDetectionSpikePage() {
     }
   }, [])
 
+  const handleLoadWorkerModel = useCallback(async () => {
+    setWorkerModelStatus('loading')
+    setWorkerModelError('')
+    try {
+      const { loadMs, provider } = await getWorkerClient().loadModel()
+      setWorkerLoadMs(loadMs)
+      setWorkerProviderInfo(provider)
+      setWorkerModelStatus('ready')
+    } catch (err) {
+      setWorkerModelStatus('error')
+      setWorkerModelError(err?.message || 'Failed to load model in worker')
+    }
+  }, [])
+
   const drawResultsOnCanvas = useCallback((canvasEl, sourceEl, sourceWidth, sourceHeight, dets, layout) => {
     if (!canvasEl) return
-    canvasEl.width = sourceWidth
-    canvasEl.height = sourceHeight
+    // Milestone 5.4: setting canvas.width/height -- even to their current
+    // value -- discards and reallocates the entire backing bitmap buffer.
+    // Camera/image dimensions are constant for the life of a session, so
+    // guarding this against a no-op reassignment removes a real,
+    // repeated (~once per processed YOLOX frame) cost from this hot path.
+    if (canvasEl.width !== sourceWidth) canvasEl.width = sourceWidth
+    if (canvasEl.height !== sourceHeight) canvasEl.height = sourceHeight
     const ctx = canvasEl.getContext('2d')
     ctx.clearRect(0, 0, sourceWidth, sourceHeight)
     ctx.drawImage(sourceEl, 0, 0, sourceWidth, sourceHeight)
@@ -218,6 +289,35 @@ export default function PhoneDetectionSpikePage() {
     }
   }, [runOneInference])
 
+  const handleRunOnImageViaWorker = useCallback(async () => {
+    if (!imgElRef.current) return
+    setWorkerImgRunning(true)
+    setWorkerImgError('')
+    try {
+      const img = imgElRef.current
+      const bitmap = await createImageBitmap(img)
+      const resultPromise = getWorkerClient().detect(bitmap, { confidenceThreshold })
+      if (!resultPromise) {
+        throw new Error('Worker is busy with a previous request')
+      }
+      const result = await resultPromise
+      setWorkerImgDetections(result.detections)
+      setWorkerImgInferenceMs(result.inferenceMs)
+      drawResultsOnCanvas(
+        workerCanvasRef.current,
+        img,
+        img.naturalWidth,
+        img.naturalHeight,
+        result.detections,
+        result.layout,
+      )
+    } catch (err) {
+      setWorkerImgError(err?.message || 'Worker inference failed')
+    } finally {
+      setWorkerImgRunning(false)
+    }
+  }, [confidenceThreshold, drawResultsOnCanvas])
+
   // --- Milestone 3: real-time camera performance harness ---
 
   const runYoloxOnVideo = useCallback(
@@ -233,10 +333,42 @@ export default function PhoneDetectionSpikePage() {
           confidenceThreshold,
           iouThreshold: DEFAULT_IOU_THRESHOLD,
         })
-        setPerfDetections(dets)
+        perfDetectionsRef.current = dets
         drawResultsOnCanvas(perfCanvasRef.current, video, video.videoWidth, video.videoHeight, dets, layout)
       } catch (err) {
         setPerfError(err?.message || 'YOLOX inference failed during performance test')
+      } finally {
+        yoloxBusyRef.current = false
+      }
+    },
+    [confidenceThreshold, drawResultsOnCanvas],
+  )
+
+  // Milestone 4: same responsibility as runYoloxOnVideo, but the actual
+  // ONNX Runtime inference happens inside yoloxWorker.js -- this function
+  // only captures the frame, hands it to the worker client, and draws the
+  // result. Latency is measured as the full round trip (capture + transfer
+  // + worker inference + transfer back), the same wall-clock definition
+  // used for the main-thread path, so the two are directly comparable.
+  const runYoloxOnVideoViaWorker = useCallback(
+    async (video) => {
+      try {
+        const bitmap = await createImageBitmap(video)
+        const t0 = now()
+        const resultPromise = getWorkerClient().detect(bitmap, { confidenceThreshold })
+        if (!resultPromise) {
+          // Worker's own busy guard caught it (shouldn't normally happen,
+          // since the loop below already gates on yoloxBusyRef first) --
+          // treat as a skipped frame, not an error.
+          return
+        }
+        const result = await resultPromise
+        yoloxTrackerRef.current.record(now() - t0)
+        processedYoloxRef.current += 1
+        perfDetectionsRef.current = result.detections
+        drawResultsOnCanvas(perfCanvasRef.current, video, video.videoWidth, video.videoHeight, result.detections, result.layout)
+      } catch (err) {
+        setPerfError(err?.message || 'YOLOX worker inference failed during performance test')
       } finally {
         yoloxBusyRef.current = false
       }
@@ -250,7 +382,7 @@ export default function PhoneDetectionSpikePage() {
       const { faceCount } = detectFrame(landmarkerRef.current, video, timestampMs)
       mediapipeTrackerRef.current.record(now() - t0)
       processedMediapipeRef.current += 1
-      setPerfFaceCount(faceCount)
+      perfFaceCountRef.current = faceCount
     } catch (err) {
       setPerfError(err?.message || 'MediaPipe detection failed during performance test')
     } finally {
@@ -258,10 +390,21 @@ export default function PhoneDetectionSpikePage() {
     }
   }, [])
 
-  const updateLiveStatsDisplay = useCallback(() => {
+  // Milestone 5.4: this is the single existing 500ms cadence (driven by the
+  // setInterval below) that both (a) already displayed the aggregate stats
+  // table, and now also (b) syncs the per-frame perfFaceCountRef/
+  // perfDetectionsRef refs into React state, instead of those refs' writers
+  // calling setState directly on every frame. `includeMedian` defaults to
+  // false for the periodic live ticks -- median is only actually computed
+  // (an O(n log n) sort over the full sample history) on the final,
+  // test-stop call, per Milestone 5.3's "observer effect" finding.
+  const updateLiveStatsDisplay = useCallback((includeMedian = false) => {
     const elapsed = now() - testStartRef.current
+    setPerfFaceCount(perfFaceCountRef.current)
+    setPerfDetections(perfDetectionsRef.current)
     setPerfStats({
       elapsedMs: elapsed,
+      yoloxExecution: yoloxExecutionRef.current,
       yolox: {
         scheduled: scheduledYoloxRef.current,
         processed: processedYoloxRef.current,
@@ -269,6 +412,7 @@ export default function PhoneDetectionSpikePage() {
         min: yoloxTrackerRef.current.min(),
         max: yoloxTrackerRef.current.max(),
         avg: yoloxTrackerRef.current.avg(),
+        median: includeMedian ? yoloxTrackerRef.current.median() : null,
         effectiveFps: computeEffectiveFps(processedYoloxRef.current, elapsed),
       },
       mediapipe: {
@@ -278,6 +422,7 @@ export default function PhoneDetectionSpikePage() {
         min: mediapipeTrackerRef.current.min(),
         max: mediapipeTrackerRef.current.max(),
         avg: mediapipeTrackerRef.current.avg(),
+        median: includeMedian ? mediapipeTrackerRef.current.median() : null,
         effectiveFps: computeEffectiveFps(processedMediapipeRef.current, elapsed),
       },
       longTask: { count: longTaskCountRef.current, totalMs: longTaskTotalMsRef.current },
@@ -328,13 +473,17 @@ export default function PhoneDetectionSpikePage() {
           }
         }
 
-        if ((mode === 'yolox' || mode === 'combined') && sessionRef.current) {
+        if ((mode === 'yolox' || mode === 'combined') && yoloxReadyRef.current) {
           if (nowMs - lastYoloxRunRef.current >= yoloxIntervalMsRef.current) {
             scheduledYoloxRef.current += 1
             lastYoloxRunRef.current = nowMs
             if (!yoloxBusyRef.current) {
               yoloxBusyRef.current = true
-              runYoloxOnVideo(video)
+              if (yoloxExecutionRef.current === 'worker') {
+                runYoloxOnVideoViaWorker(video)
+              } else {
+                runYoloxOnVideo(video)
+              }
             }
           }
         }
@@ -357,7 +506,7 @@ export default function PhoneDetectionSpikePage() {
       longTaskObserverRef.current.disconnect()
       longTaskObserverRef.current = null
     }
-    updateLiveStatsDisplay()
+    updateLiveStatsDisplay(true) // final display: worth the one-time median cost
     setPerfRunning(false)
   }, [updateLiveStatsDisplay])
 
@@ -380,7 +529,12 @@ export default function PhoneDetectionSpikePage() {
     setPerfStats(null)
     setCameraSize(null)
     cameraSizeCapturedRef.current = false
+    perfFaceCountRef.current = null
+    perfDetectionsRef.current = []
+    setPerfFaceCount(null)
+    setPerfDetections([])
     perfModeRef.current = perfMode
+    yoloxExecutionRef.current = yoloxExecution
     yoloxIntervalMsRef.current = SCHEDULE_PRESETS[schedulePreset].intervalMs
 
     try {
@@ -388,9 +542,20 @@ export default function PhoneDetectionSpikePage() {
         landmarkerRef.current = await getFaceLandmarker()
       }
       if (perfMode === 'yolox' || perfMode === 'combined') {
-        if (!sessionRef.current) {
-          sessionRef.current = await getYoloxSession()
+        if (yoloxExecution === 'worker') {
+          // Worker model is loaded explicitly and separately (see "Worker
+          // Model" card / handleLoadWorkerModel) -- Start Test is disabled
+          // in the UI until that has already completed, so nothing to
+          // await here.
+          yoloxReadyRef.current = workerModelStatus === 'ready'
+        } else {
+          if (!sessionRef.current) {
+            sessionRef.current = await getYoloxSession()
+          }
+          yoloxReadyRef.current = true
         }
+      } else {
+        yoloxReadyRef.current = false
       }
     } catch (err) {
       setPerfError(err?.message || 'Failed to initialize model(s) for performance test')
@@ -416,7 +581,7 @@ export default function PhoneDetectionSpikePage() {
     setPerfRunning(true)
     perfRafRef.current = requestAnimationFrame((t) => perfLoopRef.current(t))
     statsIntervalRef.current = setInterval(updateLiveStatsDisplay, 500)
-  }, [perfMode, schedulePreset, updateLiveStatsDisplay])
+  }, [perfMode, schedulePreset, yoloxExecution, workerModelStatus, updateLiveStatsDisplay])
 
   const handleTogglePerfCamera = useCallback(() => {
     setPerfCameraOn((prev) => {
@@ -433,16 +598,21 @@ export default function PhoneDetectionSpikePage() {
       if (perfRafRef.current) cancelAnimationFrame(perfRafRef.current)
       if (statsIntervalRef.current) clearInterval(statsIntervalRef.current)
       if (longTaskObserverRef.current) longTaskObserverRef.current.disconnect()
+      workerClientRef.current?.dispose()
     }
   }, [])
 
   const formatMs = (v) => (v == null ? '—' : `${v.toFixed(1)} ms`)
   const formatFps = (v) => (v == null ? '—' : v.toFixed(2))
 
+  const needsYolox = perfMode === 'yolox' || perfMode === 'combined'
+  const yoloxOrMediapipeReady =
+    !needsYolox || (yoloxExecution === 'worker' ? workerModelStatus === 'ready' : modelStatus === 'ready')
+
   return (
     <div className="container py-4">
       <div className="alert alert-warning">
-        <strong>Developer-only AI inference spike (Milestones 2-3).</strong> Not part of the production
+        <strong>Developer-only AI inference spike (Milestones 2-4).</strong> Not part of the production
         exam or monitoring workflow. Nothing here is sent to the backend.
       </div>
 
@@ -463,6 +633,35 @@ export default function PhoneDetectionSpikePage() {
           )}
           {timings.loadMs != null && (
             <p className="small text-muted mb-0 mt-2">Model load time: {timings.loadMs.toFixed(1)} ms</p>
+          )}
+        </div>
+      </div>
+
+      <div className="card mb-3">
+        <div className="card-body">
+          <h2 className="h6">1b. Worker Model (Milestone 4)</h2>
+          <p className="small text-muted">
+            Loads the same <code>yolox-nano-phone.onnx</code> inside a dedicated Web Worker via{' '}
+            <code>yoloxWorkerClient</code>/<code>yoloxWorker.js</code> -- a separate ONNX Runtime session,
+            isolated from the main-thread one above.
+          </p>
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={handleLoadWorkerModel}
+            disabled={workerModelStatus === 'loading'}
+          >
+            {workerModelStatus === 'ready' ? 'Reload Worker Model' : 'Load Worker Model'}
+          </button>
+          <span className="ms-3">
+            Status: <strong>{workerModelStatus}</strong>
+          </span>
+          {workerModelError && <div className="text-danger small mt-2">{workerModelError}</div>}
+          {workerProviderInfo && (
+            <pre className="small bg-light p-2 mt-2 mb-0">{JSON.stringify(workerProviderInfo, null, 2)}</pre>
+          )}
+          {workerLoadMs != null && (
+            <p className="small text-muted mb-0 mt-2">Worker model load time: {workerLoadMs.toFixed(1)} ms</p>
           )}
         </div>
       </div>
@@ -508,17 +707,45 @@ export default function PhoneDetectionSpikePage() {
             <p className="small text-muted mb-0 mt-2">Last static-image inference: {timings.lastInferenceMs.toFixed(1)} ms</p>
           )}
           <canvas ref={canvasRef} className="mt-3 border" style={{ maxWidth: '100%' }} />
+
+          <hr />
+          <h3 className="h6">3b. Same Image, via Web Worker (Milestone 4 verification target)</h3>
+          <p className="small text-muted">
+            Expected: ~92.4% on the genuine positive sample (Milestone 2's browser main-thread result),
+            0 detections above threshold on the negative dog sample.
+          </p>
+          <button
+            type="button"
+            className="btn btn-success btn-sm"
+            onClick={handleRunOnImageViaWorker}
+            disabled={!hasImage || workerModelStatus !== 'ready' || workerImgRunning}
+          >
+            {workerImgRunning ? 'Running...' : 'Run Inference (Worker)'}
+          </button>
+          {workerImgError && <div className="text-danger small mt-2">{workerImgError}</div>}
+          <p className="mb-1 mt-2">
+            Worker detections above threshold: <strong>{workerImgDetections.length}</strong>
+          </p>
+          {workerImgDetections.map((det, i) => (
+            <div key={i} className="small">
+              {CELL_PHONE_LABEL} (class {det.classId}) - confidence {(det.confidence * 100).toFixed(2)}%
+            </div>
+          ))}
+          {workerImgInferenceMs != null && (
+            <p className="small text-muted mb-0 mt-2">Worker inference (pure, reported by worker): {workerImgInferenceMs.toFixed(1)} ms</p>
+          )}
+          <canvas ref={workerCanvasRef} className="mt-3 border" style={{ maxWidth: '100%' }} />
         </div>
       </div>
 
       <div className="card mb-3">
         <div className="card-body">
-          <h2 className="h6">4. Real-Time Camera Performance Test (Milestone 3)</h2>
+          <h2 className="h6">4. Real-Time Camera Performance Test (Milestone 3 harness, Milestone 4 Worker comparison)</h2>
           <p className="small text-muted">
             MediaPipe here calls the exact same <code>faceMonitorService.getFaceLandmarker</code>/
             <code>detectFrame</code> functions the production exam page uses, at the same production
-            interval ({DETECTION_INTERVAL_MS} ms) -- unmodified, just reused. YOLOX's interval is the
-            variable being compared below.
+            interval ({DETECTION_INTERVAL_MS} ms) -- unmodified, just reused. YOLOX's schedule and
+            execution (main thread vs. Web Worker) are the variables being compared below.
           </p>
 
           <div className="row g-3 mb-3">
@@ -543,6 +770,22 @@ export default function PhoneDetectionSpikePage() {
                 {Object.entries(SCHEDULE_PRESETS).map(([key, preset]) => (
                   <option key={key} value={key}>
                     {preset.label}
+                    {key === RECOMMENDED_SCHEDULE_KEY ? ' (recommended)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="col-auto">
+              <label className="form-label small d-block">YOLOX execution (Milestone 4)</label>
+              <select
+                className="form-select form-select-sm"
+                value={yoloxExecution}
+                onChange={(e) => setYoloxExecution(e.target.value)}
+                disabled={perfRunning}
+              >
+                {Object.entries(YOLOX_EXECUTIONS).map(([key, label]) => (
+                  <option key={key} value={key}>
+                    {label}
                   </option>
                 ))}
               </select>
@@ -565,11 +808,16 @@ export default function PhoneDetectionSpikePage() {
               type="button"
               className={`btn btn-sm ${perfRunning ? 'btn-danger' : 'btn-primary'}`}
               onClick={perfRunning ? stopPerfTest : startPerfTest}
-              disabled={perfCameraStatus !== 'granted' || modelStatus !== 'ready'}
+              disabled={perfCameraStatus !== 'granted' || !yoloxOrMediapipeReady}
             >
               {perfRunning ? 'Stop Test' : 'Start Test'}
             </button>
             {perfCameraStatus !== 'granted' && <span className="small text-muted ms-2">Camera must be granted first.</span>}
+            {perfCameraStatus === 'granted' && !yoloxOrMediapipeReady && (
+              <span className="small text-muted ms-2">
+                {yoloxExecution === 'worker' ? 'Worker model must be loaded first.' : 'Main-thread model must be loaded first.'}
+              </span>
+            )}
           </div>
 
           {perfError && <div className="text-danger small mt-2">{perfError}</div>}
@@ -610,18 +858,20 @@ export default function PhoneDetectionSpikePage() {
                     <th>Dropped</th>
                     <th>Min</th>
                     <th>Avg</th>
+                    <th>Median</th>
                     <th>Max</th>
                     <th>Effective FPS</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td>YOLOX</td>
+                    <td>YOLOX ({YOLOX_EXECUTIONS[perfStats.yoloxExecution] || perfStats.yoloxExecution})</td>
                     <td>{perfStats.yolox.scheduled}</td>
                     <td>{perfStats.yolox.processed}</td>
                     <td>{perfStats.yolox.dropped}</td>
                     <td>{formatMs(perfStats.yolox.min)}</td>
                     <td>{formatMs(perfStats.yolox.avg)}</td>
+                    <td>{formatMs(perfStats.yolox.median)}</td>
                     <td>{formatMs(perfStats.yolox.max)}</td>
                     <td>{formatFps(perfStats.yolox.effectiveFps)}</td>
                   </tr>
@@ -632,6 +882,7 @@ export default function PhoneDetectionSpikePage() {
                     <td>{perfStats.mediapipe.dropped}</td>
                     <td>{formatMs(perfStats.mediapipe.min)}</td>
                     <td>{formatMs(perfStats.mediapipe.avg)}</td>
+                    <td>{formatMs(perfStats.mediapipe.median)}</td>
                     <td>{formatMs(perfStats.mediapipe.max)}</td>
                     <td>{formatFps(perfStats.mediapipe.effectiveFps)}</td>
                   </tr>
