@@ -1,7 +1,10 @@
 // Pure, framework-free YOLOX output decode + NMS. No DOM, no ONNX Runtime
 // types -- mirrors the isolation pattern already used by
 // frontend/src/monitoring/headPose.js, so this is independently unit
-// testable and can later be dropped into a Web Worker with no rework.
+// testable and can run inside a Web Worker with no rework.
+//
+// Milestone 6 Phase 2 Step 1: mechanically relocated here, verbatim, from
+// frontend/src/spike/objectDetection/decode.js -- no logic change.
 //
 // Grid/stride decode logic is a direct, verified port of
 // yolox/models/yolo_head.py::decode_outputs (read during Milestone 1):
@@ -147,7 +150,7 @@ function iou(a, b) {
 /**
  * Standard greedy NMS: highest-confidence box wins, anything overlapping it
  * by more than iouThreshold is suppressed, repeat. Pure function, single
- * class at a time (this spike only ever calls it with class-67 candidates).
+ * class at a time (this module only ever calls it with class-67 candidates).
  */
 export function nonMaxSuppression(boxes, iouThreshold = 0.45) {
   const sorted = [...boxes].sort((a, b) => b.confidence - a.confidence)

@@ -1,14 +1,16 @@
 // Thin wrapper around onnxruntime-web. Isolates the third-party API surface
-// so the rest of this spike (and, eventually, decode.js) never imports ORT
-// types directly -- mirrors the isolation pattern already used by
+// so the rest of this module (and decode.js) never imports ORT types
+// directly -- mirrors the isolation pattern already used by
 // frontend/src/monitoring/faceMonitorService.js for MediaPipe.
+//
+// Milestone 6 Phase 2 Step 1: mechanically relocated here, verbatim, from
+// frontend/src/spike/objectDetection/yoloxModel.js -- no logic change.
 //
 // wasm (CPU) execution provider only, per the Phase 10 architecture
 // decision: MediaPipe's FaceLandmarker already runs with delegate:'GPU'
 // (see faceMonitorService.js), so a GPU-backed EP here risks resource
-// contention. This spike does not run alongside MediaPipe at all (that is
-// explicitly out of scope until a later milestone), but the EP choice is
-// kept consistent with that decision now rather than revisited later.
+// contention. Milestone 5.6 validated combined YOLOX + MediaPipe operation
+// with this EP choice (see the Milestone 5.6/5.7 reports).
 
 import * as ort from 'onnxruntime-web'
 import { INPUT_SIZE, MODEL_INPUT_NAME, MODEL_OUTPUT_NAME, MODEL_URL } from './constants'
