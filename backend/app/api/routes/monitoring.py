@@ -85,6 +85,7 @@ async def create_monitoring_event(
         duration_seconds=payload.duration_seconds,
         occurrences=payload.occurrences,
         severity=payload.severity,
+        source=payload.source,
         detected_at=datetime.utcnow(),
     )
     db.add(event)

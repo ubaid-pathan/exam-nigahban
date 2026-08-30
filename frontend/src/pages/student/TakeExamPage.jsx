@@ -18,6 +18,7 @@ import ConfirmModal from '../../components/ConfirmModal'
 import CameraPreview from '../../components/CameraPreview'
 import MonitoringStatusPanel from '../../monitoring/MonitoringStatusPanel'
 import { useFaceMonitoring } from '../../monitoring/useFaceMonitoring'
+import { useMobilePhoneMonitoring } from '../../monitoring/useMobilePhoneMonitoring'
 
 const RESYNC_INTERVAL_MS = 20000
 const OPTIONS = [
@@ -73,6 +74,14 @@ export default function TakeExamPage() {
   const monitoringActive = Boolean(sessionId) && !locked && cameraStatus === 'granted'
   const { status: monitoringStatus, observationStatus, errorMessage: monitoringError } =
     useFaceMonitoring(videoRef, monitoringActive, handleMonitoringEvent)
+  // Milestone 6 Phase 2 Step 3: mobile-phone (YOLOX) detection, wired
+  // alongside face monitoring -- same videoRef, same monitoringActive
+  // gate, same event sink, but its own independent rAF loop and temporal
+  // rule engine instance (see useMobilePhoneMonitoring.js). No UI consumes
+  // its returned status yet, per this milestone's frontend-only,
+  // no-new-UI scope; MOBILE_PHONE events are still expected to be
+  // rejected (422) by the backend until a later milestone adds support.
+  useMobilePhoneMonitoring(videoRef, monitoringActive, handleMonitoringEvent)
 
   const lockSession = useCallback(
     (reason) => {

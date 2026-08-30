@@ -257,6 +257,47 @@ def test_monitoring_event_creation_broadcasts_to_connected_admin(
     }
 
 
+def test_mobile_phone_event_broadcasts_with_event_type_unchanged(
+    client, admin_user, student_user, student_profile
+):
+    """Milestone 6 Phase 2 Step 5: MOBILE_PHONE is a new event_type value,
+    not a new code path -- confirms _broadcast_monitoring_event needed no
+    changes to carry it through, exactly as designed in the Step 4 report.
+    """
+    with client:
+        admin_token = _login_token(client, "admin1", "adminpass123")
+        admin_headers = _bearer(admin_token)
+        student_headers = _bearer(_login_token(client, "student1", "studentpass123"))
+
+        exam = _create_active_exam(client, admin_headers)
+        session = _start_session(client, student_headers, exam["id"])
+
+        with client.websocket_connect(f"/ws/admin/alerts?token={admin_token}") as ws:
+            response = client.post(
+                "/api/monitoring/events",
+                json=_event_payload(
+                    session["id"],
+                    event_type="MOBILE_PHONE",
+                    severity="high",
+                    source="browser_yolox",
+                ),
+                headers=student_headers,
+            )
+            assert response.status_code == 201
+            event = response.json()
+
+            message = ws.receive_json()
+
+    assert message == {
+        "type": "monitoring_event",
+        "event_id": event["id"],
+        "session_id": session["id"],
+        "event_type": "MOBILE_PHONE",
+        "severity": "high",
+        "status": "PENDING_REVIEW",
+    }
+
+
 def test_broadcast_message_excludes_evidence_and_sensitive_data(
     client, admin_user, student_user, student_profile
 ):

@@ -458,3 +458,55 @@ def test_existing_evidence_review_functionality_still_works(
     body = response.json()
     assert body["status"] == "IGNORED"
     assert body["action"]["reason"] == "False positive"
+
+
+# ---------------------------------------------------------------------------
+# MOBILE_PHONE (Milestone 6 Phase 2 Step 5 -- YOLOX Worker pipeline)
+# ---------------------------------------------------------------------------
+
+
+def test_mobile_phone_event_appears_in_admin_listing(
+    client, admin_user, student_user, student_profile
+):
+    admin_headers, _, _, session, event = _bootstrap_single_event(
+        client,
+        admin_user,
+        student_user,
+        student_profile,
+        event_type="MOBILE_PHONE",
+        severity="high",
+    )
+
+    response = client.get("/api/monitoring/events", headers=admin_headers)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == 1
+    item = body["items"][0]
+    assert item["id"] == event["id"]
+    assert item["session_id"] == session["id"]
+    assert item["event_type"] == "MOBILE_PHONE"
+    assert item["severity"] == "high"
+
+
+def test_mobile_phone_event_type_filter(client, admin_user, student_user, student_profile):
+    _bootstrap_single_event(
+        client,
+        admin_user,
+        student_user,
+        student_profile,
+        event_type="MOBILE_PHONE",
+        severity="high",
+    )
+    admin_headers = _auth_headers(client, "admin1", "adminpass123")
+
+    matching = client.get(
+        "/api/monitoring/events?event_type=MOBILE_PHONE", headers=admin_headers
+    )
+    assert len(matching.json()["items"]) == 1
+    assert matching.json()["items"][0]["event_type"] == "MOBILE_PHONE"
+
+    non_matching = client.get(
+        "/api/monitoring/events?event_type=HEAD_RIGHT", headers=admin_headers
+    )
+    assert non_matching.json()["items"] == []

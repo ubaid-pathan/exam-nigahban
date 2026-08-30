@@ -47,6 +47,29 @@ export const MONITORING_RULES = {
 
 export const MONITORING_EVENT_TYPES = Object.freeze(Object.keys(MONITORING_RULES))
 
+// Milestone 6 Phase 2 Step 3: mobile-phone detection (YOLOX) temporal rule
+// and scheduling interval. Deliberately kept OUT of MONITORING_RULES /
+// MONITORING_EVENT_TYPES above (the face-monitoring engine's own rule
+// table) -- useMobilePhoneMonitoring.js constructs a second, fully
+// independent createTemporalRuleEngine() instance scoped to only this one
+// rule, so its state never shares a Map (or anything else) with the face
+// engine's. Baseline values are this file's own MOBILE_PHONE row from
+// CLAUDE.md/PROJECT_SPEC.md's temporal-rule table (~1s persistence, 1
+// occurrence, confidence >=0.80, High severity) -- not reinvented here.
+export const MOBILE_PHONE_RULE = {
+  minDurationSec: 1,
+  requiredOccurrences: 1,
+  confidenceThreshold: 0.8,
+  severity: 'high',
+}
+
+// YOLOX Worker detection-loop cadence: 200ms, the ~5 FPS rate validated
+// end-to-end in Milestone 5.6's real combined-mode browser benchmark (see
+// RECOMMENDED_YOLOX_TARGET_FPS in spike/objectDetection/constants.js, that
+// benchmark's own source of truth) -- reused as the production value here,
+// not re-derived.
+export const YOLOX_DETECTION_INTERVAL_MS = 200
+
 // Evidence capture (Phase 6): a single downsized still frame is captured
 // only for a frame that already produced a stabilized monitoring event
 // above -- never captured continuously. Kept small so upload stays fast

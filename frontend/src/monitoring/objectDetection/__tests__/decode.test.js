@@ -1,3 +1,7 @@
+// Milestone 6 Phase 2 Step 1: mechanically relocated here, verbatim, from
+// frontend/src/spike/objectDetection/__tests__/decode.test.js -- no test
+// change.
+
 import { describe, expect, it } from 'vitest'
 import {
   buildGrids,

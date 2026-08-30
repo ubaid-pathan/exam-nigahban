@@ -1,7 +1,7 @@
-// Preprocessing for the YOLOX-Nano browser inference spike. Deliberately
-// mirrors yolox/data/data_augment.py::preproc exactly (read during
-// Milestone 1) rather than a "typical" ImageNet-style preprocessing, since
-// the model was trained against this specific pipeline:
+// Preprocessing for YOLOX-Nano browser inference. Deliberately mirrors
+// yolox/data/data_augment.py::preproc exactly (read during Milestone 1)
+// rather than a "typical" ImageNet-style preprocessing, since the model was
+// trained against this specific pipeline:
 //
 //   - top-left letterbox (NOT centered) padded with constant value 114
 //   - resize ratio r = min(inputSize / height, inputSize / width)
@@ -11,10 +11,30 @@
 //     no mean/std subtraction)
 //   - HWC -> CHW (channels-first), batch dimension of 1
 //
+// Milestone 6 Phase 2 Step 1: mechanically relocated here, verbatim, from
+// frontend/src/spike/objectDetection/preprocess.js -- no logic change.
+//
 // The dimension math is a pure function (independently testable without a
 // real canvas/image). Only letterboxImageToTensor touches the DOM.
+//
+// letterboxImageToTensor also needs to run inside a Web Worker
+// (yoloxWorker.js), where `document` does not exist. OffscreenCanvas is
+// used whenever available (true in both a Worker and a modern main thread)
+// so this single implementation serves both contexts unchanged;
+// `document.createElement('canvas')` remains the fallback for a main
+// thread without OffscreenCanvas support.
 
 import { INPUT_SIZE, LETTERBOX_PAD_VALUE } from './constants'
+
+function createCanvas(width, height) {
+  if (typeof OffscreenCanvas !== 'undefined') {
+    return new OffscreenCanvas(width, height)
+  }
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  return canvas
+}
 
 /**
  * Pure function: given a source image's natural width/height, computes the
@@ -51,9 +71,7 @@ export function letterboxImageToTensor(source, sourceWidth, sourceHeight, inputS
     throw new Error('letterboxImageToTensor: invalid source dimensions')
   }
 
-  const canvas = document.createElement('canvas')
-  canvas.width = inputSize
-  canvas.height = inputSize
+  const canvas = createCanvas(inputSize, inputSize)
   const ctx = canvas.getContext('2d', { willReadFrequently: true })
   if (!ctx) {
     throw new Error('letterboxImageToTensor: unable to obtain 2D canvas context')

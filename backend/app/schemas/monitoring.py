@@ -14,6 +14,7 @@ EventType = Literal[
     "LOOKING_AWAY",
     "FACE_ABSENT",
     "MULTIPLE_FACES",
+    "MOBILE_PHONE",
 ]
 Severity = Literal["low", "medium", "high"]
 
@@ -28,6 +29,13 @@ class MonitoringEventCreate(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     duration_seconds: float = Field(ge=0.0)
     occurrences: int = Field(ge=1)
+    # Optional, defaulting to the value every caller relied on implicitly
+    # before this field existed (the MonitoringEvent.source column default
+    # -- see app/models/monitoring_event.py) so a request that omits it is
+    # unchanged from before Milestone 6 Phase 2 Step 5. Added so the new
+    # YOLOX mobile-phone-detection pipeline (Milestone 6) can identify
+    # itself as "browser_yolox" instead of being mislabeled as MediaPipe.
+    source: str = "browser_mediapipe"
     # Deliberately unconstrained (no max_length/format validation) at the
     # schema level: an invalid or oversized image must be rejected by the
     # route handler AFTER the event itself is created, never by failing
