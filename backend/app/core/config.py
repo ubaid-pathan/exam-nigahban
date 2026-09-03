@@ -9,14 +9,26 @@ from sqlalchemy.engine import URL
 INSECURE_SECRET_KEY_PLACEHOLDER = "CHANGE_THIS_TO_A_SECURE_RANDOM_SECRET"
 MIN_SECRET_KEY_LENGTH = 32
 
+# Supported database drivers.  "mysql" keeps the original behaviour;
+# "postgresql" enables deployment to platforms like Render / Neon that
+# offer free-tier Postgres.  SQLAlchemy abstracts the dialect so no
+# model / route / schema code needs to change.
+_DB_DRIVERS: dict[str, tuple[str, int]] = {
+    "mysql": ("mysql+pymysql", 3306),
+    "postgresql": ("postgresql+psycopg2", 5432),
+}
+
 
 class Settings(BaseSettings):
     app_name: str = "Exam Nigahban API"
     app_version: str = "1.0.0"
     environment: str = "development"
 
+    # Set to "postgresql" for Render/Neon deployment, or "mysql" for
+    # local development.  Defaults to MySQL for backward compatibility.
+    db_driver: str = "mysql"
     db_host: str = "localhost"
-    db_port: int = 3306
+    db_port: int | None = None  # auto-resolved from db_driver when None
     db_user: str = "root"
     db_password: str = ""
     db_name: str = "exam_nigahban"
@@ -57,14 +69,27 @@ class Settings(BaseSettings):
             )
         return value
 
+    @field_validator("db_driver")
+    @classmethod
+    def validate_db_driver(cls, value: str) -> str:
+        if value not in _DB_DRIVERS:
+            supported = ", ".join(sorted(_DB_DRIVERS))
+            raise ValueError(
+                f"Unsupported DB_DRIVER '{value}'. "
+                f"Supported values: {supported}"
+            )
+        return value
+
     @property
     def database_url(self) -> str:
+        drivername, default_port = _DB_DRIVERS[self.db_driver]
+        port = self.db_port if self.db_port is not None else default_port
         return URL.create(
-            drivername="mysql+pymysql",
+            drivername=drivername,
             username=self.db_user,
             password=self.db_password,
             host=self.db_host,
-            port=self.db_port,
+            port=port,
             database=self.db_name,
         ).render_as_string(hide_password=False)
 
