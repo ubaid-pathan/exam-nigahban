@@ -8,18 +8,17 @@ import {
   DEFAULT_CONFIDENCE_THRESHOLD,
   DEFAULT_IOU_THRESHOLD,
   INPUT_SIZE,
-  RECOMMENDED_YOLOX_TARGET_FPS,
-} from './objectDetection/constants'
-import { decodeDetections } from './objectDetection/decode'
-import { boxToSourcePixels, letterboxImageToTensor } from './objectDetection/preprocess'
+} from '../monitoring/objectDetection/constants'
+import { decodeDetections } from '../monitoring/objectDetection/decode'
+import { boxToSourcePixels, letterboxImageToTensor } from '../monitoring/objectDetection/preprocess'
 import {
   computeDroppedFrames,
   computeEffectiveFps,
   createLatencyTracker,
   summarizeMemory,
 } from './objectDetection/performanceStats'
-import { describeExecutionProvider, getYoloxSession, runInference } from './objectDetection/yoloxModel'
-import { createYoloxWorkerClient } from './objectDetection/yoloxWorkerClient'
+import { describeExecutionProvider, getYoloxSession, runInference } from '../monitoring/objectDetection/yoloxModel'
+import { createYoloxWorkerClient } from '../monitoring/objectDetection/yoloxWorkerClient'
 
 // Developer-only AI inference spike (Milestone 2) extended with a real-time
 // camera performance harness (Milestone 3) and a Web Worker YOLOX prototype
@@ -56,10 +55,10 @@ const SCHEDULE_PRESETS = {
   fps10: { label: '~10 FPS', intervalMs: 100 },
 }
 
-// Derived from the single source of truth in constants.js rather than
-// repeating the number here -- the default schedule selection below always
-// matches whatever Milestone 5.1 (or a future re-benchmark) recommends.
-const RECOMMENDED_SCHEDULE_KEY = `fps${RECOMMENDED_YOLOX_TARGET_FPS}`
+// Milestone 5.1 recommendation: ~5 FPS was selected as the default
+// schedule after the performance comparison. Keep this as the spike's
+// explicit default until a new benchmark changes the recommendation.
+const RECOMMENDED_SCHEDULE_KEY = 'fps5'
 
 const PERF_MODES = {
   yolox: 'YOLOX only',

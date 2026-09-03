@@ -41,3 +41,23 @@ export function severityLabel(severity) {
 export function severityBadgeClass(severity) {
   return SEVERITY_BADGE_CLASS[severity] || 'text-bg-secondary'
 }
+
+// Human-readable labels for the raw event_type identifiers the backend
+// sends/expects (see monitoring/constants.js MONITORING_RULES and
+// MOBILE_PHONE_RULE) -- display-only. The identifiers themselves are never
+// changed: every filter value, API param, and stored event still uses
+// these exact strings.
+export const EVENT_TYPE_LABELS = {
+  HEAD_LEFT: 'Head Left',
+  HEAD_RIGHT: 'Head Right',
+  HEAD_UP: 'Head Up',
+  HEAD_DOWN: 'Head Down',
+  LOOKING_AWAY: 'Looking Away',
+  FACE_ABSENT: 'Face Absent',
+  MULTIPLE_FACES: 'Multiple Faces',
+  MOBILE_PHONE: 'Mobile Phone',
+}
+
+export function eventTypeLabel(type) {
+  return EVENT_TYPE_LABELS[type] || type || 'Unknown'
+}

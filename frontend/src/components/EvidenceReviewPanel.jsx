@@ -4,9 +4,11 @@ import { getErrorMessage } from '../utils/apiError'
 import {
   eventStatusBadgeClass,
   eventStatusLabel,
+  eventTypeLabel,
   severityBadgeClass,
   severityLabel,
 } from '../utils/monitoringStatus'
+import { formatDateTimePKT } from '../utils/dateFormat'
 
 // Renders the evidence image for `event.evidence_id` and lets an admin
 // record a CONFIRMED/IGNORED decision. The image endpoint requires the same
@@ -114,7 +116,7 @@ export default function EvidenceReviewPanel({ event, onClose, onReviewed }) {
                   <dt className="col-5">Exam</dt>
                   <dd className="col-7">{event.exam_title}</dd>
                   <dt className="col-5">Activity</dt>
-                  <dd className="col-7">{event.event_type}</dd>
+                  <dd className="col-7">{eventTypeLabel(event.event_type)}</dd>
                   <dt className="col-5">Severity</dt>
                   <dd className="col-7">
                     <span className={`badge ${severityBadgeClass(event.severity)}`}>
@@ -132,7 +134,7 @@ export default function EvidenceReviewPanel({ event, onClose, onReviewed }) {
                   <dt className="col-5">Duration</dt>
                   <dd className="col-7">{event.duration_seconds}s</dd>
                   <dt className="col-5">Detected At</dt>
-                  <dd className="col-7">{new Date(event.detected_at).toLocaleString()}</dd>
+                  <dd className="col-7">{formatDateTimePKT(event.detected_at)}</dd>
                 </dl>
               </div>
             </div>

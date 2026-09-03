@@ -87,19 +87,56 @@ describe('nextReconnectDelay', () => {
 
 // A minimal hand-written fake -- no new dependency. Mirrors the native
 // WebSocket surface the module under test actually touches (constructor
-// taking a URL, .close(), and the four on* handler slots), and tracks
-// every instance constructed so tests can assert how many sockets a
-// controller created over time.
+// taking a URL, .close(), the four on* handler slots, readyState, and the
+// CONNECTING/OPEN/CLOSED constants), and tracks every instance constructed
+// so tests can assert how many sockets a controller created over time.
+//
+// onopen/onclose are accessors rather than plain fields so that calling the
+// handler the module assigned (exactly as existing tests already do, e.g.
+// `instances[0].onopen(event)`) also transitions readyState the way a real
+// browser socket would -- without requiring every existing test to manage
+// readyState itself.
 class FakeWebSocket {
   static instances = []
+  static CONNECTING = 0
+  static OPEN = 1
+  static CLOSING = 2
+  static CLOSED = 3
 
   constructor(url) {
     this.url = url
-    this.onopen = null
+    this.readyState = FakeWebSocket.CONNECTING
+    this._onopen = null
     this.onmessage = null
     this.onerror = null
-    this.onclose = null
+    this._onclose = null
     FakeWebSocket.instances.push(this)
+  }
+
+  get onopen() {
+    return this._onopen
+  }
+
+  set onopen(handler) {
+    this._onopen = handler
+      ? (event) => {
+          this.readyState = FakeWebSocket.OPEN
+          handler(event)
+        }
+      : null
+  }
+
+  get onclose() {
+    return this._onclose
+  }
+
+  set onclose(handler) {
+    this._onclose = handler
+      ? (event) => {
+          this.readyState = FakeWebSocket.CLOSED
+          handler(event)
+        }
+      : null
   }
 
   close() {
@@ -289,5 +326,102 @@ describe('connectAdminAlertsSocket', () => {
     // no second socket should exist during the wait.
     vi.advanceTimersByTime(500)
     expect(FakeWebSocket.instances).toHaveLength(1)
+  })
+
+  it('defers closing a socket that is still connecting instead of aborting its handshake', () => {
+    const onOpen = vi.fn()
+    const controller = connectAdminAlertsSocket({ token: 'abc', onOpen, WebSocketImpl: FakeWebSocket })
+    const socket = FakeWebSocket.instances[0]
+    expect(socket.readyState).toBe(FakeWebSocket.CONNECTING)
+
+    controller.close()
+
+    // Still connecting -- the native close() must not have fired yet. A
+    // real browser would abort the handshake right here and log "WebSocket
+    // is closed before the connection is established" if we called
+    // socket.close() while readyState is CONNECTING.
+    expect(socket.readyState).toBe(FakeWebSocket.CONNECTING)
+
+    // The handshake now completes naturally.
+    socket.onopen({ type: 'open' })
+
+    // The deferred close happens immediately once the socket opens, and
+    // onOpen never fires for a socket that was already told to close.
+    expect(socket.readyState).toBe(FakeWebSocket.CLOSED)
+    expect(onOpen).not.toHaveBeenCalled()
+  })
+
+  it('does not reconnect after a deferred connecting-state close completes', () => {
+    vi.useFakeTimers()
+    const controller = connectAdminAlertsSocket({ token: 'abc', WebSocketImpl: FakeWebSocket })
+
+    controller.close()
+    FakeWebSocket.instances[0].onopen({ type: 'open' }) // handshake completes, deferred close fires
+
+    vi.advanceTimersByTime(60000)
+    expect(FakeWebSocket.instances).toHaveLength(1)
+  })
+
+  it('handles a React StrictMode-style mount -> cleanup -> mount without leaking sockets or invoking stale callbacks', () => {
+    vi.useFakeTimers()
+    const onOpen = vi.fn()
+
+    // First (StrictMode dev-check) mount.
+    const first = connectAdminAlertsSocket({ token: 'abc', onOpen, WebSocketImpl: FakeWebSocket })
+    const firstSocket = FakeWebSocket.instances[0]
+
+    // React immediately runs the cleanup for the first mount before the
+    // socket has finished connecting.
+    first.close()
+
+    // The real mount.
+    const second = connectAdminAlertsSocket({ token: 'abc', onOpen, WebSocketImpl: FakeWebSocket })
+    const secondSocket = FakeWebSocket.instances[1]
+
+    expect(FakeWebSocket.instances).toHaveLength(2)
+
+    // Both sockets now finish their handshake. Order between them is not
+    // guaranteed in a real browser, so exercise the case where the
+    // abandoned one resolves after the real one.
+    secondSocket.onopen({ type: 'open' })
+    firstSocket.onopen({ type: 'open' })
+
+    // Only the still-wanted connection's onOpen fires.
+    expect(onOpen).toHaveBeenCalledTimes(1)
+    expect(onOpen).toHaveBeenCalledWith({ type: 'open' })
+    expect(firstSocket.readyState).toBe(FakeWebSocket.CLOSED)
+    expect(secondSocket.readyState).toBe(FakeWebSocket.OPEN)
+
+    // No reconnect churn from the abandoned first socket's close.
+    vi.advanceTimersByTime(60000)
+    expect(FakeWebSocket.instances).toHaveLength(2)
+
+    second.close()
+  })
+
+  it('ignores a message delivered after an intentional close', () => {
+    const onMessage = vi.fn()
+    const controller = connectAdminAlertsSocket({ token: 'abc', onMessage, WebSocketImpl: FakeWebSocket })
+    const socket = FakeWebSocket.instances[0]
+    socket.onopen({ type: 'open' })
+
+    controller.close()
+    socket.onmessage({
+      data: JSON.stringify({ type: 'monitoring_event', event_id: 1, session_id: 2 }),
+    })
+
+    expect(onMessage).not.toHaveBeenCalled()
+  })
+
+  it('ignores an error event delivered after an intentional close', () => {
+    const onError = vi.fn()
+    const controller = connectAdminAlertsSocket({ token: 'abc', onError, WebSocketImpl: FakeWebSocket })
+    const socket = FakeWebSocket.instances[0]
+    socket.onopen({ type: 'open' })
+
+    controller.close()
+    socket.onerror({ type: 'error' })
+
+    expect(onError).not.toHaveBeenCalled()
   })
 })

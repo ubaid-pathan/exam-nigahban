@@ -21,6 +21,7 @@ export async function createStudent({
   password,
   studentId,
   fullName,
+  email,
   department,
   className,
 }) {
@@ -29,6 +30,7 @@ export async function createStudent({
     password,
     student_id: studentId,
     full_name: fullName,
+    email: email || undefined,
     department: department || undefined,
     class_name: className || undefined,
   })

@@ -12,6 +12,7 @@ import ExamManagementPage from './pages/admin/ExamManagementPage'
 import ExamQuestionsPage from './pages/admin/ExamQuestionsPage'
 import StudentManagementPage from './pages/admin/StudentManagementPage'
 import AdminManagementPage from './pages/admin/AdminManagementPage'
+import UsersPage from './pages/admin/UsersPage'
 import StudentLayout from './layouts/StudentLayout'
 import StudentHome from './pages/student/StudentHome'
 import ExamListPage from './pages/student/ExamListPage'
@@ -35,6 +36,12 @@ export default function App() {
             <Route path="/admin/monitoring" element={<MonitoringEventsPage />} />
             <Route path="/admin/exams" element={<ExamManagementPage />} />
             <Route path="/admin/exams/:examId/questions" element={<ExamQuestionsPage />} />
+            <Route path="/admin/users" element={<UsersPage />} />
+            {/* Superseded by /admin/users (Students + Administrators
+                consolidated into one Users feature) and no longer linked
+                from the sidebar, but kept working rather than deleted --
+                still reachable directly and by anything that already
+                references these URLs. */}
             <Route path="/admin/students" element={<StudentManagementPage />} />
             <Route path="/admin/administrators" element={<AdminManagementPage />} />
             <Route path="/admin/audit" element={<AuditHistoryPage />} />

@@ -70,6 +70,15 @@ export function connectAdminAlertsSocket({
   let attempt = 0
   let reconnectTimerId = null
   let stopped = false
+  // Set when close() is called while the current socket is still mid
+  // handshake (readyState CONNECTING). Calling the native close() in that
+  // state aborts the handshake and is what makes the browser log "WebSocket
+  // is closed before the connection is established" -- most visible under
+  // React StrictMode, which runs an effect, its cleanup, and the effect
+  // again, back to back, before the first socket has had a chance to open.
+  // Deferring the actual close until onopen avoids the warning entirely
+  // instead of merely hiding it.
+  let closeRequested = false
 
   const scheduleReconnect = () => {
     if (stopped) {
@@ -88,6 +97,7 @@ export function connectAdminAlertsSocket({
       return
     }
     reconnectTimerId = null
+    closeRequested = false
 
     try {
       socket = new WebSocketImpl(buildAdminAlertsSocketUrl(API_BASE_URL, token))
@@ -99,10 +109,26 @@ export function connectAdminAlertsSocket({
 
     socket.onopen = (event) => {
       attempt = 0
+      if (closeRequested) {
+        // close() was requested while this socket was still connecting;
+        // finish the handshake cleanly and close it now instead of having
+        // aborted it mid-flight. The caller never asked to be connected to
+        // begin with, so onOpen must not fire for it.
+        socket.close()
+        return
+      }
       onOpen?.(event)
     }
-    socket.onerror = (event) => onError?.(event)
+    socket.onerror = (event) => {
+      if (stopped) {
+        return
+      }
+      onError?.(event)
+    }
     socket.onmessage = (event) => {
+      if (stopped) {
+        return
+      }
       const message = parseAdminAlertMessage(event.data)
       if (message) {
         onMessage?.(message)
@@ -126,6 +152,10 @@ export function connectAdminAlertsSocket({
         clearTimeout(reconnectTimerId)
       }
       reconnectTimerId = null
+      if (socket && socket.readyState === WebSocketImpl.CONNECTING) {
+        closeRequested = true
+        return
+      }
       socket?.close()
     },
   }

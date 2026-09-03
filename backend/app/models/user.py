@@ -39,6 +39,21 @@ class User(Base):
         default=True,
     )
 
+    # Nullable, added for the Users consolidation feature. Students already
+    # have an authoritative full_name on the Student profile table -- this
+    # column is only ever populated for admin accounts (which have no
+    # separate profile table of their own). email is shared by both roles,
+    # since neither previously had anywhere to store one.
+    full_name: Mapped[str | None] = mapped_column(
+        String(150),
+        nullable=True,
+    )
+
+    email: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=datetime.utcnow,

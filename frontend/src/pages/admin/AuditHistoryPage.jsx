@@ -1,12 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { listAuditLog } from '../../api/audit'
 import { getErrorMessage } from '../../utils/apiError'
-import {
-  eventStatusBadgeClass,
-  eventStatusLabel,
-  severityBadgeClass,
-  severityLabel,
-} from '../../utils/monitoringStatus'
+import { eventStatusBadgeClass, eventStatusLabel } from '../../utils/monitoringStatus'
+import { formatDateTimePKT } from '../../utils/dateFormat'
 import LoadingState from '../../components/LoadingState'
 import ErrorState from '../../components/ErrorState'
 import EmptyState from '../../components/EmptyState'
@@ -97,7 +93,6 @@ export default function AuditHistoryPage() {
                   <th>Student</th>
                   <th>Exam</th>
                   <th>Event Type</th>
-                  <th>Severity</th>
                   <th>Session</th>
                   <th>Action</th>
                   <th>Reason</th>
@@ -114,11 +109,6 @@ export default function AuditHistoryPage() {
                     </td>
                     <td>{item.exam_title}</td>
                     <td>{item.event_type}</td>
-                    <td>
-                      <span className={`badge ${severityBadgeClass(item.severity)}`}>
-                        {severityLabel(item.severity)}
-                      </span>
-                    </td>
                     <td>{item.session_id}</td>
                     <td>
                       <span className={`badge ${eventStatusBadgeClass(item.action)}`}>
@@ -129,7 +119,7 @@ export default function AuditHistoryPage() {
                       {item.reason || <span className="text-muted small">&mdash;</span>}
                     </td>
                     <td>{item.admin_username}</td>
-                    <td className="text-nowrap">{new Date(item.created_at).toLocaleString()}</td>
+                    <td className="text-nowrap">{formatDateTimePKT(item.created_at)}</td>
                   </tr>
                 ))}
               </tbody>
