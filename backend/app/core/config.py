@@ -84,6 +84,12 @@ class Settings(BaseSettings):
     def database_url(self) -> str:
         drivername, default_port = _DB_DRIVERS[self.db_driver]
         port = self.db_port if self.db_port is not None else default_port
+        # Neon (and most managed Postgres) requires SSL. Adding sslmode
+        # unconditionally is harmless for local MySQL and mandatory for
+        # cloud Postgres providers.
+        query: dict[str, str] = {}
+        if self.db_driver == "postgresql":
+            query["sslmode"] = "require"
         return URL.create(
             drivername=drivername,
             username=self.db_user,
@@ -91,6 +97,7 @@ class Settings(BaseSettings):
             host=self.db_host,
             port=port,
             database=self.db_name,
+            query=query,
         ).render_as_string(hide_password=False)
 
 
