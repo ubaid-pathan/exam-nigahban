@@ -3,12 +3,11 @@ import { listMonitoringEvents } from '../../api/monitoring'
 import { getErrorMessage } from '../../utils/apiError'
 import {
   EVENT_STATUS_LABELS,
-  SEVERITY_LABELS,
   eventStatusBadgeClass,
   eventStatusLabel,
-  severityBadgeClass,
-  severityLabel,
+  eventTypeLabel,
 } from '../../utils/monitoringStatus'
+import { formatDateTimePKT } from '../../utils/dateFormat'
 import { MONITORING_EVENT_TYPES } from '../../monitoring/constants'
 import LoadingState from '../../components/LoadingState'
 import ErrorState from '../../components/ErrorState'
@@ -16,7 +15,14 @@ import EmptyState from '../../components/EmptyState'
 import EvidenceReviewPanel from '../../components/EvidenceReviewPanel'
 
 const PAGE_SIZE = 10
-const EMPTY_FILTERS = { status: '', severity: '', eventType: '', sessionId: '' }
+const EMPTY_FILTERS = { status: '', eventType: '', sessionId: '' }
+// MOBILE_PHONE is deliberately not part of MONITORING_EVENT_TYPES /
+// MONITORING_RULES in monitoring/constants.js -- it's detected by a
+// separate YOLOX rule engine (see MOBILE_PHONE_RULE and the comment above
+// it in that file), not the face-monitoring engine those are derived from.
+// Added here only, as a filter option -- the backend identifier string and
+// detection logic are untouched.
+const EVENT_TYPE_FILTER_OPTIONS = [...MONITORING_EVENT_TYPES, 'MOBILE_PHONE']
 
 export default function MonitoringEventsPage() {
   const [draftFilters, setDraftFilters] = useState(EMPTY_FILTERS)
@@ -33,7 +39,6 @@ export default function MonitoringEventsPage() {
     try {
       const result = await listMonitoringEvents({
         status: appliedFilters.status,
-        severity: appliedFilters.severity,
         eventType: appliedFilters.eventType,
         sessionId: appliedFilters.sessionId ? Number(appliedFilters.sessionId) : undefined,
         page,
@@ -97,25 +102,6 @@ export default function MonitoringEventsPage() {
         </div>
 
         <div className="col-6 col-md-3">
-          <label htmlFor="filter-severity" className="form-label small">
-            Severity
-          </label>
-          <select
-            id="filter-severity"
-            className="form-select form-select-sm"
-            value={draftFilters.severity}
-            onChange={(e) => setDraftFilters((f) => ({ ...f, severity: e.target.value }))}
-          >
-            <option value="">All</option>
-            {Object.keys(SEVERITY_LABELS).map((severity) => (
-              <option key={severity} value={severity}>
-                {severityLabel(severity)}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="col-6 col-md-3">
           <label htmlFor="filter-event-type" className="form-label small">
             Event Type
           </label>
@@ -126,15 +112,15 @@ export default function MonitoringEventsPage() {
             onChange={(e) => setDraftFilters((f) => ({ ...f, eventType: e.target.value }))}
           >
             <option value="">All</option>
-            {MONITORING_EVENT_TYPES.map((type) => (
+            {EVENT_TYPE_FILTER_OPTIONS.map((type) => (
               <option key={type} value={type}>
-                {type}
+                {eventTypeLabel(type)}
               </option>
             ))}
           </select>
         </div>
 
-        <div className="col-6 col-md-2">
+        <div className="col-6 col-md-3">
           <label htmlFor="filter-session-id" className="form-label small">
             Session ID
           </label>
@@ -148,7 +134,7 @@ export default function MonitoringEventsPage() {
           />
         </div>
 
-        <div className="col-12 col-md-1 d-flex gap-2">
+        <div className="col-12 col-md-3 d-flex gap-2">
           <button type="submit" className="btn btn-primary btn-sm">
             Apply
           </button>
@@ -176,13 +162,11 @@ export default function MonitoringEventsPage() {
                   <th>Student</th>
                   <th>Exam</th>
                   <th>Event Type</th>
-                  <th>Severity</th>
                   <th>Confidence</th>
                   <th>Duration</th>
                   <th>Occurrences</th>
                   <th>Status</th>
                   <th>Detected At</th>
-                  <th>Evidence</th>
                   <th>Review</th>
                 </tr>
               </thead>
@@ -194,12 +178,7 @@ export default function MonitoringEventsPage() {
                       <div className="text-muted small">{item.student_id}</div>
                     </td>
                     <td>{item.exam_title}</td>
-                    <td>{item.event_type}</td>
-                    <td>
-                      <span className={`badge ${severityBadgeClass(item.severity)}`}>
-                        {severityLabel(item.severity)}
-                      </span>
-                    </td>
+                    <td>{eventTypeLabel(item.event_type)}</td>
                     <td>{(item.confidence * 100).toFixed(1)}%</td>
                     <td>{item.duration_seconds}s</td>
                     <td>{item.occurrences}</td>
@@ -208,14 +187,7 @@ export default function MonitoringEventsPage() {
                         {eventStatusLabel(item.status)}
                       </span>
                     </td>
-                    <td className="text-nowrap">{new Date(item.detected_at).toLocaleString()}</td>
-                    <td>
-                      {item.evidence_id != null ? (
-                        <span className="badge text-bg-success">Available</span>
-                      ) : (
-                        <span className="text-muted small">None</span>
-                      )}
-                    </td>
+                    <td className="text-nowrap">{formatDateTimePKT(item.detected_at)}</td>
                     <td>
                       {item.evidence_id != null ? (
                         <button

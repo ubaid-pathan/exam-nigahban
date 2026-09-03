@@ -8,6 +8,7 @@ import ErrorState from '../../components/ErrorState'
 import EmptyState from '../../components/EmptyState'
 import ConfirmModal from '../../components/ConfirmModal'
 import QuestionFormModal from '../../components/QuestionFormModal'
+import { EditIcon, TrashIcon } from '../../components/admin/icons'
 
 const STATUS_BADGE_CLASS = {
   draft: 'text-bg-secondary',
@@ -197,65 +198,68 @@ export default function ExamQuestionsPage() {
       )}
 
       {!loading && !error && questions.length > 0 && (
-        <div className="card shadow-sm">
-          <div className="card-header bg-white d-flex justify-content-between align-items-center">
-            <span className="fw-semibold">Questions</span>
-            <span className="text-muted small">
+        <>
+          <div className="d-flex justify-content-end mb-2">
+            <p className="text-muted small mb-0">
               {questions.length} question{questions.length === 1 ? '' : 's'}
-            </span>
+            </p>
           </div>
-          <div className="card-body p-0">
-            <div className="table-responsive">
-              <table className="table table-hover align-middle mb-0">
-                <thead className="table-light">
-                  <tr>
-                    <th className="ps-3">Question</th>
-                    <th>Option A</th>
-                    <th>Option B</th>
-                    <th>Option C</th>
-                    <th>Option D</th>
-                    <th>Correct</th>
-                    <th className="pe-3">Actions</th>
+          <div className="table-responsive">
+            <table className="table table-sm table-hover align-middle">
+              <thead>
+                <tr>
+                  <th>Question</th>
+                  <th>Option A</th>
+                  <th>Option B</th>
+                  <th>Option C</th>
+                  <th>Option D</th>
+                  <th>Correct</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {questions.map((question) => (
+                  <tr key={question.id}>
+                    <td className="text-wrap-cell">{question.question_text}</td>
+                    <td className="text-wrap-cell">{question.option_a}</td>
+                    <td className="text-wrap-cell">{question.option_b}</td>
+                    <td className="text-wrap-cell">{question.option_c}</td>
+                    <td className="text-wrap-cell">{question.option_d}</td>
+                    <td>
+                      <span className="badge text-bg-success">
+                        {question.correct_answer}
+                      </span>
+                    </td>
+                    <td>
+                      <div
+                        className="d-flex flex-wrap align-items-center gap-2"
+                        role="group"
+                        aria-label="Question actions"
+                      >
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1"
+                          onClick={() => openEditForm(question)}
+                        >
+                          <EditIcon width={14} height={14} />
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-danger d-inline-flex align-items-center gap-1"
+                          onClick={() => openDeleteConfirm(question)}
+                        >
+                          <TrashIcon width={14} height={14} />
+                          Delete
+                        </button>
+                      </div>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {questions.map((question) => (
-                    <tr key={question.id}>
-                      <td className="ps-3 text-wrap-cell">{question.question_text}</td>
-                      <td className="text-wrap-cell">{question.option_a}</td>
-                      <td className="text-wrap-cell">{question.option_b}</td>
-                      <td className="text-wrap-cell">{question.option_c}</td>
-                      <td className="text-wrap-cell">{question.option_d}</td>
-                      <td>
-                        <span className="badge text-bg-success">
-                          {question.correct_answer}
-                        </span>
-                      </td>
-                      <td className="pe-3">
-                        <div className="d-flex gap-2 flex-wrap">
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-outline-secondary"
-                            onClick={() => openEditForm(question)}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-outline-danger"
-                            onClick={() => openDeleteConfirm(question)}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </div>
+        </>
       )}
 
       {formOpen && (
@@ -272,7 +276,8 @@ export default function ExamQuestionsPage() {
       {pendingDelete && (
         <ConfirmModal
           title="Delete Question?"
-          confirmLabel={deleteSubmitting ? 'Deleting...' : 'Delete'}
+          confirmLabel={deleteSubmitting ? 'Deleting...' : 'Delete Question'}
+          confirmVariant="danger"
           confirmDisabled={deleteSubmitting}
           onConfirm={handleConfirmDelete}
           onCancel={closeDeleteConfirm}

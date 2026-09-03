@@ -6,8 +6,14 @@ import LoadingState from '../../components/LoadingState'
 import ErrorState from '../../components/ErrorState'
 import EmptyState from '../../components/EmptyState'
 import ConfirmModal from '../../components/ConfirmModal'
+import { EditIcon, PauseIcon, PlayIcon, QuestionsIcon, TrashIcon } from '../../components/admin/icons'
 
 const EMPTY_FORM = { title: '', description: '', durationMinutes: '' }
+// listExams() has no page/pageSize params -- it returns the full list --
+// so pagination here is client-side only, over the already-loaded array,
+// exactly like UsersPage.jsx's client-side pagination. No backend/API
+// change involved.
+const PAGE_SIZE = 10
 
 const STATUS_BADGE_CLASS = {
   draft: 'text-bg-secondary',
@@ -30,6 +36,7 @@ export default function ExamManagementPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
+  const [page, setPage] = useState(1)
 
   const [formOpen, setFormOpen] = useState(false)
   const [formMode, setFormMode] = useState('create')
@@ -58,6 +65,16 @@ export default function ExamManagementPage() {
   useEffect(() => {
     load()
   }, [load])
+
+  const totalPages = Math.max(1, Math.ceil(exams.length / PAGE_SIZE))
+  // Clamped separately from the raw `page` state so that deleting exams
+  // while on the last page can never leave the view stuck on a page number
+  // beyond what still exists (Exams, unlike Users, has a Delete action).
+  const currentPage = Math.min(page, totalPages)
+  const pageExams = exams.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+
+  const handlePrevious = () => setPage((current) => Math.max(1, current - 1))
+  const handleNext = () => setPage((current) => Math.min(totalPages, current + 1))
 
   const openCreateForm = () => {
     setFormMode('create')
@@ -191,104 +208,134 @@ export default function ExamManagementPage() {
       )}
 
       {!loading && !error && exams.length > 0 && (
-        <div className="card shadow-sm">
-          <div className="card-header bg-white d-flex justify-content-between align-items-center">
-            <span className="fw-semibold">All Exams</span>
-            <span className="text-muted small">
-              {exams.length} exam{exams.length === 1 ? '' : 's'}
-            </span>
-          </div>
-          <div className="card-body p-0">
-            <div className="table-responsive">
-              <table className="table table-hover align-middle mb-0">
-                <thead className="table-light">
-                  <tr>
-                    <th className="ps-3">Title</th>
-                    <th>Duration</th>
-                    <th>Status</th>
-                    <th>Questions</th>
-                    <th>Created</th>
-                    <th className="pe-3">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {exams.map((exam) => (
-                    <tr key={exam.id}>
-                      <td className="ps-3">
-                        <div className="fw-semibold">{exam.title}</div>
-                        {exam.description && (
-                          <div className="text-muted small">{exam.description}</div>
-                        )}
-                      </td>
-                      <td>{exam.duration_minutes} min</td>
-                      <td>
-                        <span className={`badge ${statusBadgeClass(exam.status)}`}>
-                          {statusLabel(exam.status)}
-                        </span>
-                      </td>
-                      <td>
-                        <span className="badge text-bg-light text-dark border">
-                          {exam.question_count} question{exam.question_count === 1 ? '' : 's'}
-                        </span>
-                      </td>
-                      <td className="text-nowrap text-muted small">
-                        {new Date(exam.created_at).toLocaleDateString(undefined, {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric',
-                        })}
-                      </td>
-                      <td className="pe-3">
-                        <div className="d-flex flex-wrap align-items-center gap-2">
-                          <div className="btn-group btn-group-sm" role="group" aria-label="Exam actions">
-                            <button
-                              type="button"
-                              className="btn btn-outline-secondary"
-                              onClick={() => openEditForm(exam)}
-                            >
-                              Edit
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-outline-primary"
-                              onClick={() => navigate(`/admin/exams/${exam.id}/questions`)}
-                            >
-                              Questions
-                            </button>
-                            {exam.status === 'active' ? (
-                              <button
-                                type="button"
-                                className="btn btn-outline-warning"
-                                onClick={() => openPendingAction('deactivate', exam)}
-                              >
-                                Deactivate
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                className="btn btn-outline-success"
-                                onClick={() => openPendingAction('activate', exam)}
-                              >
-                                Activate
-                              </button>
-                            )}
-                          </div>
+        <>
+          <div className="table-responsive">
+            <table className="table table-sm table-hover align-middle">
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Duration</th>
+                  <th>Status</th>
+                  <th>Questions</th>
+                  <th>Created</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pageExams.map((exam) => (
+                  <tr key={exam.id}>
+                    <td>
+                      <div className="fw-semibold">{exam.title}</div>
+                      {exam.description && (
+                        <div className="text-muted small">{exam.description}</div>
+                      )}
+                    </td>
+                    <td>{exam.duration_minutes} min</td>
+                    <td>
+                      <span className={`badge ${statusBadgeClass(exam.status)}`}>
+                        {statusLabel(exam.status)}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="badge text-bg-light text-dark border">
+                        {exam.question_count} question{exam.question_count === 1 ? '' : 's'}
+                      </span>
+                    </td>
+                    <td className="text-nowrap text-muted small">
+                      {new Date(exam.created_at).toLocaleDateString(undefined, {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                      })}
+                    </td>
+                    <td>
+                      {/* Flat flex row rather than a fused .btn-group: a
+                          button-group is a single non-wrapping inline-flex
+                          unit, so on a narrow table only the Delete button
+                          (outside the group) could ever wrap onto its own
+                          line, leaving the heavy 3-button cluster rigid.
+                          Letting every button wrap independently here is
+                          what actually prevents awkward wrapping. */}
+                      <div
+                        className="d-flex flex-wrap align-items-center gap-2"
+                        role="group"
+                        aria-label="Exam actions"
+                      >
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1"
+                          onClick={() => openEditForm(exam)}
+                        >
+                          <EditIcon width={14} height={14} />
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1"
+                          onClick={() => navigate(`/admin/exams/${exam.id}/questions`)}
+                        >
+                          <QuestionsIcon width={14} height={14} />
+                          Questions
+                        </button>
+                        {exam.status === 'active' ? (
                           <button
                             type="button"
-                            className="btn btn-sm btn-outline-danger"
-                            onClick={() => openPendingAction('delete', exam)}
+                            className="btn btn-sm btn-outline-warning d-inline-flex align-items-center gap-1"
+                            onClick={() => openPendingAction('deactivate', exam)}
                           >
-                            Delete
+                            <PauseIcon width={14} height={14} />
+                            Deactivate
                           </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-success d-inline-flex align-items-center gap-1"
+                            onClick={() => openPendingAction('activate', exam)}
+                          >
+                            <PlayIcon width={14} height={14} />
+                            Activate
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-danger d-inline-flex align-items-center gap-1 ms-1"
+                          onClick={() => openPendingAction('delete', exam)}
+                        >
+                          <TrashIcon width={14} height={14} />
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="d-flex justify-content-between align-items-center mt-3">
+            <p className="text-muted small mb-0">
+              Page {currentPage} of {totalPages} (Total: {exams.length})
+            </p>
+            <div className="d-flex gap-2">
+              <button
+                type="button"
+                className="btn btn-outline-secondary btn-sm"
+                onClick={handlePrevious}
+                disabled={currentPage <= 1}
+              >
+                Previous
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline-secondary btn-sm"
+                onClick={handleNext}
+                disabled={currentPage >= totalPages}
+              >
+                Next
+              </button>
             </div>
           </div>
-        </div>
+        </>
       )}
 
       {formOpen && (
@@ -368,11 +415,12 @@ export default function ExamManagementPage() {
             actionSubmitting
               ? 'Working...'
               : pendingAction.type === 'delete'
-                ? 'Delete'
+                ? 'Delete Exam'
                 : pendingAction.type === 'activate'
                   ? 'Activate'
                   : 'Deactivate'
           }
+          confirmVariant={pendingAction.type === 'delete' ? 'danger' : 'primary'}
           confirmDisabled={actionSubmitting}
           onConfirm={handleConfirmAction}
           onCancel={closePendingAction}

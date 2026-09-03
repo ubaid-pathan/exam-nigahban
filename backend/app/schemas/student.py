@@ -25,6 +25,7 @@ class StudentListItem(BaseModel):
     username: str
     student_id: str
     full_name: str
+    email: str | None = None
     department: str | None
     class_name: str | None
     is_active: bool

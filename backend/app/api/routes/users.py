@@ -32,6 +32,7 @@ def _student_response_fields(student: Student, user: User) -> dict:
         "username": user.username,
         "student_id": student.student_id,
         "full_name": student.full_name,
+        "email": user.email,
         "department": student.department,
         "class_name": student.class_name,
         "is_active": student.is_active,
@@ -83,6 +84,7 @@ def create_student(payload: StudentCreateRequest, db: Session = Depends(get_db))
         password_hash=hash_password(payload.password),
         role="student",
         status=True,
+        email=payload.email,
     )
     db.add(user)
     db.flush()
@@ -215,6 +217,8 @@ def create_admin(payload: AdminCreateRequest, db: Session = Depends(get_db)) -> 
         password_hash=hash_password(payload.password),
         role="admin",
         status=True,
+        full_name=payload.full_name,
+        email=payload.email,
     )
     db.add(user)
     db.commit()

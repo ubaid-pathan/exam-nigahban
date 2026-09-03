@@ -356,6 +356,25 @@ body {
   border-color: var(--app-primary);
 }
 
+/* Decorative left-aligned icon overlaid inside a text input (currently:
+   LoginPage.jsx's username/password fields). The icon is absolutely
+   positioned over the input's own left padding (apply Bootstrap's ps-5
+   utility to the input itself so typed text never reaches under it) and
+   pointer-events:none so a click on the icon still focuses the input
+   underneath rather than being captured by the SVG. */
+.form-icon-group {
+  position: relative;
+}
+
+.form-icon-group__icon {
+  position: absolute;
+  top: 50%;
+  left: 0.9rem;
+  transform: translateY(-50%);
+  color: var(--app-text-muted);
+  pointer-events: none;
+}
+
 /* Active admin/student navigation item: a solid brand-primary pill on the
    dark navbar (a soft/light tint would be invisible against navbar-dark's
    background). Scoped generically so both AdminLayout.jsx and
@@ -368,4 +387,296 @@ body {
   color: #fff;
   background-color: var(--app-primary);
   border-radius: 0.375rem;
+}
+
+/* ==========================================================================
+   Admin sidebar shell (AdminLayout.jsx / AdminSidebar.jsx only).
+   Deliberately separate, distinctly-named classes rather than reusing
+   .app-shell/.app-main/.navbar-dark above -- StudentLayout still uses the
+   classic top-nav shell built on those, and must keep working unchanged.
+   Breakpoint: 768px. Below it the sidebar is an off-canvas drawer (hidden
+   via transform, slid in with .admin-sidebar--open); at/above it the
+   sidebar is a persistent, always-visible column, matching the "clean
+   responsive layout" option for the 768-1023px tablet range explicitly
+   permitted alongside a collapsed sidebar.
+   ========================================================================== */
+.admin-shell {
+  min-height: 100vh;
+  background-color: var(--app-page-bg);
+}
+
+.admin-sidebar {
+  position: fixed;
+  inset-block: 0;
+  left: 0;
+  width: 258px;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bs-dark, #212529);
+  color: #e2e8f0;
+  z-index: 1040;
+  transform: translateX(-100%);
+  transition: transform 0.2s ease;
+}
+
+.admin-sidebar--open {
+  transform: translateX(0);
+}
+
+@media (min-width: 768px) {
+  .admin-sidebar {
+    transform: translateX(0);
+    transition: none;
+  }
+}
+
+.admin-sidebar__overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.55);
+  z-index: 1035;
+}
+
+@media (min-width: 768px) {
+  .admin-sidebar__overlay {
+    display: none;
+  }
+}
+
+.admin-sidebar__brand {
+  padding: 1.1rem 1.1rem 0.9rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.admin-sidebar__brand-name {
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: #fff;
+}
+
+.admin-sidebar__brand-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  margin-top: 0.15rem;
+}
+
+.admin-sidebar__close-btn {
+  background: none;
+  border: none;
+  color: #cbd5e1;
+  padding: 0.25rem;
+  line-height: 0;
+}
+
+.admin-sidebar__nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem;
+}
+
+.admin-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 0.5rem;
+  color: #cbd5e1;
+  text-decoration: none;
+  font-size: 0.9rem;
+  margin-bottom: 0.2rem;
+}
+
+.admin-nav-link svg {
+  flex-shrink: 0;
+}
+
+.admin-nav-link:hover {
+  background-color: rgba(255, 255, 255, 0.07);
+  color: #fff;
+}
+
+.admin-nav-link:focus-visible {
+  outline: 2px solid var(--app-primary-border);
+  outline-offset: 2px;
+}
+
+.admin-nav-link.active {
+  background-color: var(--app-primary);
+  color: #fff;
+  font-weight: 600;
+}
+
+.admin-main {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 768px) {
+  .admin-main {
+    margin-left: 258px;
+  }
+}
+
+.admin-header {
+  position: sticky;
+  top: 0;
+  z-index: 1020;
+  background-color: var(--app-surface);
+  border-bottom: 1px solid var(--app-border);
+  padding: 0.75rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+/* Both direct children (the title group and the account group) can shrink
+   below their natural content width instead of forcing the header -- and
+   the page -- wider than the viewport. Flex items default to
+   min-width: auto, which blocks shrinking entirely; this is what actually
+   lets a long username truncate instead of overflowing. */
+.admin-header > div {
+  min-width: 0;
+}
+
+.admin-header__menu-btn {
+  border: 1px solid var(--app-border);
+  background-color: var(--app-surface);
+  border-radius: 0.375rem;
+  width: 2.25rem;
+  height: 2.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--app-text-secondary);
+}
+
+.admin-header__title {
+  font-weight: 600;
+  color: var(--app-text-primary);
+}
+
+.admin-header__account {
+  min-width: 0;
+}
+
+.admin-header__username {
+  min-width: 0;
+  color: var(--app-text-secondary);
+}
+
+.admin-content {
+  flex: 1;
+  min-width: 0;
+  padding: 1.5rem;
+}
+
+@media (max-width: 767.98px) {
+  .admin-content {
+    padding: 1rem;
+  }
+}
+
+/* Student header account area (StudentLayout.jsx) -- the same min-width:0
+   overflow-safety as .admin-header__account/.admin-header__username above,
+   so a long username can truncate instead of forcing the navbar wider than
+   the viewport. Not literally reusing those admin classes: they also set
+   color: var(--app-text-secondary) for AdminLayout's light-background
+   header, which would be illegible on this navbar's dark background
+   (text-light supplies the correct color here instead). */
+.student-header__account {
+  min-width: 0;
+}
+
+.student-header__username {
+  min-width: 0;
+}
+
+/* Admin dashboard stat cards (DashboardPage.jsx). Section labels and the
+   tinted icon badges reuse the app's existing soft/solid brand tokens
+   (index.css :root) -- no new colors introduced, just a small-caps section
+   heading (the same convention as .admin-sidebar__brand-label) and a
+   circular tinted icon container per semantic tone. */
+.dashboard-section-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--app-text-muted);
+  margin-bottom: 0.75rem;
+}
+
+.dashboard-stat-card__icon {
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dashboard-stat-card__icon--primary {
+  background-color: var(--app-primary-soft);
+  color: var(--app-primary);
+}
+
+.dashboard-stat-card__icon--secondary {
+  background-color: var(--app-secondary-soft);
+  color: var(--app-secondary);
+}
+
+.dashboard-stat-card__icon--success {
+  background-color: var(--app-success-soft);
+  color: var(--app-success);
+}
+
+.dashboard-stat-card__icon--warning {
+  background-color: var(--app-warning-soft);
+  color: var(--app-warning-text);
+}
+
+.dashboard-stat-card__icon--danger {
+  background-color: var(--app-danger-soft);
+  color: var(--app-danger);
+}
+
+.dashboard-stat-card__icon--info {
+  background-color: var(--app-info-soft);
+  color: var(--app-info);
+}
+
+/* Live WebSocket connection indicator on the admin dashboard.
+   The pulsing dot uses the success palette to signal an active real-time
+   channel; when the socket disconnects the entire badge is hidden by the
+   React component rather than switching to a red/error style, so the
+   absence of the indicator itself communicates "not connected". */
+.dashboard-live-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--app-success);
+  padding: 0.15rem 0.55rem;
+  background: var(--app-success-soft);
+  border-radius: 1rem;
+  letter-spacing: 0.02em;
+}
+
+.dashboard-live-indicator__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--app-success);
+  animation: dashboard-live-pulse 2s ease-in-out infinite;
+}
+
+@keyframes dashboard-live-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
 }
