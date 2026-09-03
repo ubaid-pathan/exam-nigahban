@@ -1,6 +1,6 @@
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from sqlalchemy.engine import URL
+from sqlalchemy.engine import URL, make_url
 
 # The exact placeholder shipped in .env.example. A real deployment must
 # never boot with this value -- it's public, so anyone could forge a
@@ -23,6 +23,12 @@ class Settings(BaseSettings):
     app_name: str = "Exam Nigahban API"
     app_version: str = "1.0.0"
     environment: str = "development"
+
+    # Full database URL override.  When set (e.g. from Neon's connection
+    # string), this takes priority over the individual db_host/user/
+    # password/name fields.  The driver prefix is automatically rewritten
+    # to the correct SQLAlchemy dialect (postgresql+psycopg2).
+    database_url: str | None = None
 
     # Set to "postgresql" for Render/Neon deployment, or "mysql" for
     # local development.  Defaults to MySQL for backward compatibility.
@@ -81,7 +87,18 @@ class Settings(BaseSettings):
         return value
 
     @property
-    def database_url(self) -> str:
+    def database_url_resolved(self) -> str:
+        # If a full DATABASE_URL was provided, rewrite its driver to the
+        # correct SQLAlchemy dialect and return it directly.  This avoids
+        # all encoding issues with individual fields.
+        if self.database_url:
+            url = make_url(self.database_url)
+            if "postgres" in url.drivername:
+                url = url.set(drivername="postgresql+psycopg2")
+            elif "mysql" in url.drivername:
+                url = url.set(drivername="mysql+pymysql")
+            return url.render_as_string(hide_password=False)
+
         drivername, default_port = _DB_DRIVERS[self.db_driver]
         port = self.db_port if self.db_port is not None else default_port
         # Neon (and most managed Postgres) requires SSL. Adding sslmode

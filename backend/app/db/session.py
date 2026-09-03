@@ -5,7 +5,7 @@ from app.core.config import settings
 
 
 engine = create_engine(
-    settings.database_url,
+    settings.database_url_resolved,
     pool_pre_ping=True,
 )
 
