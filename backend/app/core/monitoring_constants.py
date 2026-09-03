@@ -8,8 +8,10 @@ used here only to validate that an incoming event's type/severity are
 recognized, not to re-run temporal logic server-side.
 """
 
-# Face-monitoring activity types covered by this milestone (Phase 5B/5C).
-# Mobile-phone detection (YOLO) is a separate, later milestone.
+# Face-monitoring activity types (Phase 5B/5C) plus mobile-phone detection
+# (YOLO -- Milestone 6 Phase 2 Step 5; the browser-side YOLOX Worker
+# pipeline and its own isolated temporal rule engine were added in Steps
+# 1-3, frontend-only until this step).
 ALLOWED_EVENT_TYPES = {
     "HEAD_LEFT",
     "HEAD_RIGHT",
@@ -18,6 +20,7 @@ ALLOWED_EVENT_TYPES = {
     "LOOKING_AWAY",
     "FACE_ABSENT",
     "MULTIPLE_FACES",
+    "MOBILE_PHONE",
 }
 
 ALLOWED_SEVERITIES = {"low", "medium", "high"}

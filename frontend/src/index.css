@@ -1,6 +1,101 @@
+/* ==========================================================================
+   Exam Nigahban design tokens -- Option A brand palette.
+   Single source of truth for every brand/semantic color in the app.
+   ========================================================================== */
+:root {
+  --app-primary: #4656A8;
+  --app-primary-hover: #39498F;
+  --app-primary-active: #303F7D;
+  --app-primary-soft: #EEF0FA;
+  --app-primary-border: #C9CEF0;
+
+  --app-secondary: #64748B;
+  --app-secondary-hover: #475569;
+  --app-secondary-soft: #F1F5F9;
+
+  --app-success: #198754;
+  --app-success-hover: #157347;
+  --app-success-soft: #EAF7EF;
+
+  --app-warning: #E09B3D;
+  --app-warning-hover: #BE8434;
+  --app-warning-soft: #FBF3E8;
+  /* Distinct from --app-warning-hover: used only as TEXT color on the pale
+     --app-warning-soft background (e.g. .alert-warning body text), which
+     needs much stronger darkening than a button hover-fill does to stay
+     readable -- verified 5.29:1 contrast against --app-warning-soft vs.
+     only 2.92:1 if --app-warning-hover were reused for this. */
+  --app-warning-text: #865D25;
+
+  --app-danger: #DC3545;
+  --app-danger-hover: #BB2D3B;
+  --app-danger-soft: #FDECEE;
+
+  --app-info: #0F7490;
+  --app-info-hover: #0C5F75;
+  --app-info-soft: #E8F7FA;
+
+  --app-page-bg: #F8FAFC;
+  --app-surface: #FFFFFF;
+  --app-surface-subtle: #F1F5F9;
+
+  --app-border: #E2E8F0;
+  --app-border-strong: #CBD5E1;
+
+  --app-text-primary: #0F172A;
+  --app-text-secondary: #475569;
+  --app-text-muted: #64748B;
+  --app-text-disabled: #94A3B8;
+
+  --app-focus-ring: rgba(70, 86, 168, 0.20);
+}
+
+/* Bridges the tokens above into Bootstrap's own CSS custom properties.
+   Bootstrap 5.3's utilities (text-bg-*, text-*, border-*, bg-*, alerts,
+   links, .text-muted) all read color from these root-level --bs-* vars,
+   so overriding them here re-themes every one of those utility classes
+   throughout the app without touching a single component file. --bs-success
+   and --bs-danger are intentionally NOT overridden -- Bootstrap's defaults
+   (#198754 / #dc3545) already equal Option A's Success/Danger exactly. Note
+   --bs-secondary-color is a genuinely different Bootstrap concept from
+   --bs-secondary (the former drives .text-muted; the latter drives
+   secondary buttons/badges) -- both are mapped intentionally below. */
+:root {
+  --bs-primary: var(--app-primary);
+  --bs-primary-rgb: 70, 86, 168;
+  --bs-primary-text-emphasis: var(--app-primary-active);
+  --bs-primary-bg-subtle: var(--app-primary-soft);
+  --bs-primary-border-subtle: var(--app-primary-border);
+
+  --bs-secondary: var(--app-secondary);
+  --bs-secondary-rgb: 100, 116, 139;
+  --bs-secondary-color: var(--app-text-muted);
+  --bs-secondary-color-rgb: 100, 116, 139;
+
+  --bs-warning: var(--app-warning);
+  --bs-warning-rgb: 224, 155, 61;
+  --bs-warning-text-emphasis: var(--app-warning-text);
+  --bs-warning-bg-subtle: var(--app-warning-soft);
+
+  --bs-info: var(--app-info);
+  --bs-info-rgb: 15, 116, 144;
+  --bs-info-text-emphasis: var(--app-info-hover);
+  --bs-info-bg-subtle: var(--app-info-soft);
+
+  --bs-link-color: var(--app-primary);
+  --bs-link-color-rgb: 70, 86, 168;
+  --bs-link-hover-color: var(--app-primary-hover);
+  --bs-link-hover-color-rgb: 57, 73, 143;
+
+  --bs-body-bg: var(--app-page-bg);
+  --bs-body-color: var(--app-text-primary);
+  --bs-border-color: var(--app-border);
+}
+
 body {
   margin: 0;
-  background-color: #f5f6f8;
+  background-color: var(--app-page-bg);
+  color: var(--app-text-primary);
 }
 
 .app-shell {
@@ -15,7 +110,7 @@ body {
 }
 
 .exam-card {
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--app-border);
   border-radius: 0.5rem;
 }
 
@@ -56,7 +151,7 @@ body {
 }
 
 .exam-timer--warning {
-  color: #b02a37;
+  color: var(--app-danger);
 }
 
 .question-palette {
@@ -74,7 +169,7 @@ body {
 .modal-backdrop-manual {
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba(0, 0, 0, 0.65);
   z-index: 1050;
   display: flex;
   align-items: center;
@@ -82,6 +177,506 @@ body {
   padding: 1rem;
 }
 
+/* Bootstrap's .modal-content/.modal-header/.modal-body/.modal-footer read
+   their background/border/spacing from --bs-modal-* custom properties that
+   Bootstrap only ever defines on the (unused, JS-driven) .modal class.
+   None of this app's hand-rolled dialogs (ConfirmModal.jsx and, inside it,
+   every form/confirmation built on top -- plus EvidenceReviewPanel.jsx)
+   ever render .modal, so those variables are otherwise undefined and every
+   manual modal would render with a transparent background and no border.
+   Reproducing Bootstrap's own default values here, scoped to any
+   .modal-content inside .modal-backdrop-manual, fixes every manual modal
+   in the app at once. box-shadow is added explicitly since Bootstrap
+   defines a --bs-modal-box-shadow variable but never actually applies it
+   to .modal-content -- without this, JS Bootstrap modals get elevation
+   this hand-rolled structure otherwise wouldn't. */
+.modal-backdrop-manual .modal-content {
+  --bs-modal-color: var(--bs-body-color);
+  --bs-modal-bg: var(--app-surface);
+  --bs-modal-border-color: var(--bs-border-color-translucent);
+  --bs-modal-border-width: var(--bs-border-width);
+  --bs-modal-border-radius: var(--bs-border-radius-lg);
+  --bs-modal-padding: 1rem;
+  --bs-modal-header-padding: 1rem 1rem;
+  --bs-modal-header-padding-x: 1rem;
+  --bs-modal-header-padding-y: 1rem;
+  --bs-modal-header-border-color: var(--bs-border-color);
+  --bs-modal-header-border-width: var(--bs-border-width);
+  --bs-modal-title-line-height: 1.5;
+  --bs-modal-footer-gap: 0.5rem;
+  --bs-modal-footer-bg: var(--app-surface);
+  --bs-modal-footer-border-color: var(--bs-border-color);
+  --bs-modal-footer-border-width: var(--bs-border-width);
+  box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.25);
+}
+
+/* .modal-content has no max-height/overflow handling without Bootstrap's
+   JS-driven .modal-dialog-scrollable mechanism (which itself needs
+   --bs-modal-margin, left undefined here). Capping height directly and
+   letting only .modal-body scroll keeps the header/footer -- already
+   flex-shrink:0 in Bootstrap's own unconditional CSS -- visible on short
+   viewports (1280x720 / 1366x768 class screens). Scoped to the Evidence
+   Review modal only, since it's the one with tall image content; other
+   manual modals are short enough not to need it. */
+.evidence-review-modal-content {
+  max-height: calc(100vh - 2rem);
+  overflow: hidden;
+}
+
+.evidence-review-modal-content .modal-body {
+  overflow-y: auto;
+  min-height: 0;
+}
+
 .no-select {
   user-select: none;
+}
+
+/* Caps a table cell's width so one very long value (e.g. question text)
+   can't blow out the whole table, while still wrapping onto multiple
+   lines rather than truncating -- no data is ever hidden from view. */
+.text-wrap-cell {
+  max-width: 320px;
+  white-space: normal;
+}
+
+/* ==========================================================================
+   Bootstrap component overrides -- brand color system, continued.
+   Unlike the utility classes bridged via --bs-* root variables above,
+   Bootstrap's button and table-header components bake literal hex values
+   directly into each class's own local custom properties rather than
+   referencing the root theme variables, so the root bridge above cannot
+   reach them. Only the button variants actually used in this app are
+   overridden here; .btn-success/.btn-outline-success/.btn-outline-danger
+   are intentionally left alone since Bootstrap's own defaults already
+   equal Option A's Success/Danger colors. Text colors (white on
+   primary/secondary, black on warning) are also left alone -- verified by
+   WCAG contrast calculation that Bootstrap's existing choice is already
+   the correct one for every new color. */
+.btn-primary {
+  --bs-btn-bg: var(--app-primary);
+  --bs-btn-border-color: var(--app-primary);
+  --bs-btn-hover-bg: var(--app-primary-hover);
+  --bs-btn-hover-border-color: var(--app-primary-hover);
+  --bs-btn-focus-shadow-rgb: 70, 86, 168;
+  --bs-btn-active-bg: var(--app-primary-active);
+  --bs-btn-active-border-color: var(--app-primary-active);
+  --bs-btn-disabled-bg: var(--app-primary);
+  --bs-btn-disabled-border-color: var(--app-primary);
+}
+
+.btn-outline-primary {
+  --bs-btn-color: var(--app-primary);
+  --bs-btn-border-color: var(--app-primary);
+  --bs-btn-hover-bg: var(--app-primary);
+  --bs-btn-hover-border-color: var(--app-primary);
+  --bs-btn-focus-shadow-rgb: 70, 86, 168;
+  --bs-btn-active-bg: var(--app-primary);
+  --bs-btn-active-border-color: var(--app-primary);
+  --bs-btn-disabled-color: var(--app-primary);
+}
+
+.btn-secondary {
+  --bs-btn-bg: var(--app-secondary);
+  --bs-btn-border-color: var(--app-secondary);
+  --bs-btn-hover-bg: var(--app-secondary-hover);
+  --bs-btn-hover-border-color: var(--app-secondary-hover);
+  --bs-btn-focus-shadow-rgb: 100, 116, 139;
+  --bs-btn-active-bg: var(--app-secondary-hover);
+  --bs-btn-active-border-color: var(--app-secondary-hover);
+  --bs-btn-disabled-bg: var(--app-secondary);
+  --bs-btn-disabled-border-color: var(--app-secondary);
+}
+
+.btn-outline-secondary {
+  --bs-btn-color: var(--app-secondary);
+  --bs-btn-border-color: var(--app-secondary);
+  --bs-btn-hover-bg: var(--app-secondary);
+  --bs-btn-hover-border-color: var(--app-secondary);
+  --bs-btn-focus-shadow-rgb: 100, 116, 139;
+  --bs-btn-active-bg: var(--app-secondary);
+  --bs-btn-active-border-color: var(--app-secondary);
+  --bs-btn-disabled-color: var(--app-secondary);
+}
+
+.btn-warning {
+  --bs-btn-bg: var(--app-warning);
+  --bs-btn-border-color: var(--app-warning);
+  --bs-btn-hover-bg: var(--app-warning-hover);
+  --bs-btn-hover-border-color: var(--app-warning-hover);
+  --bs-btn-focus-shadow-rgb: 224, 155, 61;
+  --bs-btn-active-bg: var(--app-warning-hover);
+  --bs-btn-active-border-color: var(--app-warning-hover);
+  --bs-btn-disabled-bg: var(--app-warning);
+  --bs-btn-disabled-border-color: var(--app-warning);
+}
+
+/* .btn-outline-warning: the exam "Deactivate" action (its only consumer in
+   the app). Unlike an earlier iteration of this design system, Deactivate
+   is now intentionally unified with the rest of the Warning semantic
+   family via --app-warning, rather than kept on Bootstrap's stock orange
+   -- per the current, explicit design decision that Deactivate is a
+   genuine Warning action and should share the one centralized token. */
+.btn-outline-warning {
+  --bs-btn-color: var(--app-warning);
+  --bs-btn-border-color: var(--app-warning);
+  --bs-btn-hover-bg: var(--app-warning);
+  --bs-btn-hover-border-color: var(--app-warning);
+  --bs-btn-focus-shadow-rgb: 224, 155, 61;
+  --bs-btn-active-bg: var(--app-warning);
+  --bs-btn-active-border-color: var(--app-warning);
+  --bs-btn-disabled-color: var(--app-warning);
+}
+
+/* Table headers: same "baked literal hex" issue as buttons above. */
+.table-light {
+  --bs-table-bg: var(--app-surface-subtle);
+  --bs-table-border-color: var(--app-border);
+}
+
+/* Form focus states: Bootstrap hardcodes a literal light-blue border and
+   rgba(13,110,253,.25) box-shadow directly on these rules (not var-driven,
+   verified against the compiled CSS), so the root bridge above cannot
+   reach them either. Uses --app-focus-ring, the token defined for exactly
+   this purpose. Covers text inputs/textareas, selects, and the radio
+   buttons TakeExamPage uses for answer selection. */
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--app-primary);
+  box-shadow: 0 0 0 0.25rem var(--app-focus-ring);
+}
+
+.form-check-input:focus {
+  border-color: var(--app-primary);
+  box-shadow: 0 0 0 0.25rem var(--app-focus-ring);
+}
+
+.form-check-input:checked {
+  background-color: var(--app-primary);
+  border-color: var(--app-primary);
+}
+
+/* Decorative left-aligned icon overlaid inside a text input (currently:
+   LoginPage.jsx's username/password fields). The icon is absolutely
+   positioned over the input's own left padding (apply Bootstrap's ps-5
+   utility to the input itself so typed text never reaches under it) and
+   pointer-events:none so a click on the icon still focuses the input
+   underneath rather than being captured by the SVG. */
+.form-icon-group {
+  position: relative;
+}
+
+.form-icon-group__icon {
+  position: absolute;
+  top: 50%;
+  left: 0.9rem;
+  transform: translateY(-50%);
+  color: var(--app-text-muted);
+  pointer-events: none;
+}
+
+/* Active admin/student navigation item: a solid brand-primary pill on the
+   dark navbar (a soft/light tint would be invisible against navbar-dark's
+   background). Scoped generically so both AdminLayout.jsx and
+   StudentLayout.jsx pick it up without either file needing to change --
+   both already emit a plain "active" class Bootstrap doesn't otherwise
+   style. Only the active item gets colored; hover/inactive links keep
+   Bootstrap's existing navbar-dark treatment, so the rest of the nav bar
+   does not turn blue. */
+.navbar-dark .nav-link.active {
+  color: #fff;
+  background-color: var(--app-primary);
+  border-radius: 0.375rem;
+}
+
+/* ==========================================================================
+   Admin sidebar shell (AdminLayout.jsx / AdminSidebar.jsx only).
+   Deliberately separate, distinctly-named classes rather than reusing
+   .app-shell/.app-main/.navbar-dark above -- StudentLayout still uses the
+   classic top-nav shell built on those, and must keep working unchanged.
+   Breakpoint: 768px. Below it the sidebar is an off-canvas drawer (hidden
+   via transform, slid in with .admin-sidebar--open); at/above it the
+   sidebar is a persistent, always-visible column, matching the "clean
+   responsive layout" option for the 768-1023px tablet range explicitly
+   permitted alongside a collapsed sidebar.
+   ========================================================================== */
+.admin-shell {
+  min-height: 100vh;
+  background-color: var(--app-page-bg);
+}
+
+.admin-sidebar {
+  position: fixed;
+  inset-block: 0;
+  left: 0;
+  width: 258px;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bs-dark, #212529);
+  color: #e2e8f0;
+  z-index: 1040;
+  transform: translateX(-100%);
+  transition: transform 0.2s ease;
+}
+
+.admin-sidebar--open {
+  transform: translateX(0);
+}
+
+@media (min-width: 768px) {
+  .admin-sidebar {
+    transform: translateX(0);
+    transition: none;
+  }
+}
+
+.admin-sidebar__overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.55);
+  z-index: 1035;
+}
+
+@media (min-width: 768px) {
+  .admin-sidebar__overlay {
+    display: none;
+  }
+}
+
+.admin-sidebar__brand {
+  padding: 1.1rem 1.1rem 0.9rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.admin-sidebar__brand-name {
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: #fff;
+}
+
+.admin-sidebar__brand-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  margin-top: 0.15rem;
+}
+
+.admin-sidebar__close-btn {
+  background: none;
+  border: none;
+  color: #cbd5e1;
+  padding: 0.25rem;
+  line-height: 0;
+}
+
+.admin-sidebar__nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem;
+}
+
+.admin-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 0.5rem;
+  color: #cbd5e1;
+  text-decoration: none;
+  font-size: 0.9rem;
+  margin-bottom: 0.2rem;
+}
+
+.admin-nav-link svg {
+  flex-shrink: 0;
+}
+
+.admin-nav-link:hover {
+  background-color: rgba(255, 255, 255, 0.07);
+  color: #fff;
+}
+
+.admin-nav-link:focus-visible {
+  outline: 2px solid var(--app-primary-border);
+  outline-offset: 2px;
+}
+
+.admin-nav-link.active {
+  background-color: var(--app-primary);
+  color: #fff;
+  font-weight: 600;
+}
+
+.admin-main {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 768px) {
+  .admin-main {
+    margin-left: 258px;
+  }
+}
+
+.admin-header {
+  position: sticky;
+  top: 0;
+  z-index: 1020;
+  background-color: var(--app-surface);
+  border-bottom: 1px solid var(--app-border);
+  padding: 0.75rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+/* Both direct children (the title group and the account group) can shrink
+   below their natural content width instead of forcing the header -- and
+   the page -- wider than the viewport. Flex items default to
+   min-width: auto, which blocks shrinking entirely; this is what actually
+   lets a long username truncate instead of overflowing. */
+.admin-header > div {
+  min-width: 0;
+}
+
+.admin-header__menu-btn {
+  border: 1px solid var(--app-border);
+  background-color: var(--app-surface);
+  border-radius: 0.375rem;
+  width: 2.25rem;
+  height: 2.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--app-text-secondary);
+}
+
+.admin-header__title {
+  font-weight: 600;
+  color: var(--app-text-primary);
+}
+
+.admin-header__account {
+  min-width: 0;
+}
+
+.admin-header__username {
+  min-width: 0;
+  color: var(--app-text-secondary);
+}
+
+.admin-content {
+  flex: 1;
+  min-width: 0;
+  padding: 1.5rem;
+}
+
+@media (max-width: 767.98px) {
+  .admin-content {
+    padding: 1rem;
+  }
+}
+
+/* Student header account area (StudentLayout.jsx) -- the same min-width:0
+   overflow-safety as .admin-header__account/.admin-header__username above,
+   so a long username can truncate instead of forcing the navbar wider than
+   the viewport. Not literally reusing those admin classes: they also set
+   color: var(--app-text-secondary) for AdminLayout's light-background
+   header, which would be illegible on this navbar's dark background
+   (text-light supplies the correct color here instead). */
+.student-header__account {
+  min-width: 0;
+}
+
+.student-header__username {
+  min-width: 0;
+}
+
+/* Admin dashboard stat cards (DashboardPage.jsx). Section labels and the
+   tinted icon badges reuse the app's existing soft/solid brand tokens
+   (index.css :root) -- no new colors introduced, just a small-caps section
+   heading (the same convention as .admin-sidebar__brand-label) and a
+   circular tinted icon container per semantic tone. */
+.dashboard-section-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--app-text-muted);
+  margin-bottom: 0.75rem;
+}
+
+.dashboard-stat-card__icon {
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dashboard-stat-card__icon--primary {
+  background-color: var(--app-primary-soft);
+  color: var(--app-primary);
+}
+
+.dashboard-stat-card__icon--secondary {
+  background-color: var(--app-secondary-soft);
+  color: var(--app-secondary);
+}
+
+.dashboard-stat-card__icon--success {
+  background-color: var(--app-success-soft);
+  color: var(--app-success);
+}
+
+.dashboard-stat-card__icon--warning {
+  background-color: var(--app-warning-soft);
+  color: var(--app-warning-text);
+}
+
+.dashboard-stat-card__icon--danger {
+  background-color: var(--app-danger-soft);
+  color: var(--app-danger);
+}
+
+.dashboard-stat-card__icon--info {
+  background-color: var(--app-info-soft);
+  color: var(--app-info);
+}
+
+/* Live WebSocket connection indicator on the admin dashboard.
+   The pulsing dot uses the success palette to signal an active real-time
+   channel; when the socket disconnects the entire badge is hidden by the
+   React component rather than switching to a red/error style, so the
+   absence of the indicator itself communicates "not connected". */
+.dashboard-live-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--app-success);
+  padding: 0.15rem 0.55rem;
+  background: var(--app-success-soft);
+  border-radius: 1rem;
+  letter-spacing: 0.02em;
+}
+
+.dashboard-live-indicator__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--app-success);
+  animation: dashboard-live-pulse 2s ease-in-out infinite;
+}
+
+@keyframes dashboard-live-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
 }

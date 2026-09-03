@@ -121,6 +121,75 @@ def test_admin_creates_admin(client, admin_user):
     assert body["role"] == "admin"
 
 
+def test_admin_creates_student_with_email(client, admin_user):
+    # email/full_name-for-admins were added for the Users consolidation
+    # feature -- both are optional at the schema level (see
+    # test_admin_creates_student/test_admin_creates_admin above, which omit
+    # them entirely and must keep working), but must be accepted and
+    # returned correctly when the caller does provide them.
+    headers = _auth_headers(client, "admin1", "adminpass123")
+    response = client.post(
+        "/api/users/students",
+        json={
+            "username": "emailstudent",
+            "password": "studentpass123",
+            "student_id": "STU-9010",
+            "full_name": "Email Student",
+            "email": "emailstudent@example.com",
+        },
+        headers=headers,
+    )
+    assert response.status_code == 201
+
+    listing = client.get("/api/users/students", headers=headers).json()
+    item = next(i for i in listing["items"] if i["username"] == "emailstudent")
+    assert item["email"] == "emailstudent@example.com"
+
+
+def test_admin_creates_student_with_invalid_email_rejected(client, admin_user):
+    headers = _auth_headers(client, "admin1", "adminpass123")
+    response = client.post(
+        "/api/users/students",
+        json={
+            "username": "bademailstudent",
+            "password": "studentpass123",
+            "student_id": "STU-9011",
+            "full_name": "Bad Email Student",
+            "email": "not-an-email",
+        },
+        headers=headers,
+    )
+    assert response.status_code == 422
+
+
+def test_admin_creates_admin_with_full_name_and_email(client, admin_user):
+    headers = _auth_headers(client, "admin1", "adminpass123")
+    response = client.post(
+        "/api/users/admins",
+        json={
+            "username": "fulladmin",
+            "password": "adminpass456",
+            "full_name": "Full Admin",
+            "email": "fulladmin@example.com",
+        },
+        headers=headers,
+    )
+    assert response.status_code == 201
+    body = response.json()
+    assert body["full_name"] == "Full Admin"
+    assert body["email"] == "fulladmin@example.com"
+
+
+def test_admin_creates_admin_with_invalid_email_rejected(client, admin_user):
+    headers = _auth_headers(client, "admin1", "adminpass123")
+    response = client.post(
+        "/api/users/admins",
+        json={"username": "bademailadmin", "password": "adminpass456", "email": "nope"},
+        headers=headers,
+    )
+    assert response.status_code == 422
+
+
 def test_duplicate_username_rejected(client, admin_user):
     headers = _auth_headers(client, "admin1", "adminpass123")
     response = client.post(
@@ -169,3 +238,18 @@ def test_student_forbidden_from_admin_routes(client, student_user):
     )
     assert response.status_code == 403
     assert response.json()["detail"] == "Admin access required"
+
+def test_admin_forbidden_from_student_routes(client, admin_user):
+    headers = _auth_headers(
+        client,
+        "admin1",
+        "adminpass123",
+    )
+
+    response = client.get(
+        "/api/student/exams",
+        headers=headers,
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Student access required"

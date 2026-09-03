@@ -12,3 +12,10 @@ export function getErrorMessage(error, fallback = 'Something went wrong. Please 
 export function getStatusCode(error) {
   return error?.response?.status ?? null
 }
+
+/** True when the backend returned 403 Forbidden -- the user is authenticated
+ *  (has a valid token) but lacks the required role/permission.  Distinct from
+ *  a 401 which the apiClient interceptor already handles (clears session). */
+export function isForbiddenError(error) {
+  return getStatusCode(error) === 403
+}

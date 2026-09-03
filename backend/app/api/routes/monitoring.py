@@ -1,20 +1,30 @@
 import logging
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from app.api.deps import require_admin
 from app.api.routes.student_exams import get_current_student
 from app.db.models import Evidence, Exam, ExamSession, MonitoringEvent, Student
 from app.db.session import get_db
 from app.schemas.evidence import EvidenceResponse
-from app.schemas.monitoring import MonitoringEventCreate, MonitoringEventResponse
+from app.schemas.monitoring import (
+    EventStatus,
+    EventType,
+    MonitoringEventAdminResponse,
+    MonitoringEventCreate,
+    MonitoringEventListResponse,
+    MonitoringEventResponse,
+    Severity,
+)
 from app.services.evidence_storage import (
     EvidenceValidationError,
     decode_and_validate_image,
     delete_evidence_file,
     save_evidence_image,
 )
+from app.websocket.manager import manager as websocket_manager
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +68,7 @@ def _get_owned_active_session_or_404(
     response_model=MonitoringEventResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def create_monitoring_event(
+async def create_monitoring_event(
     payload: MonitoringEventCreate,
     student: Student = Depends(get_current_student),
     db: Session = Depends(get_db),
@@ -75,11 +85,14 @@ def create_monitoring_event(
         duration_seconds=payload.duration_seconds,
         occurrences=payload.occurrences,
         severity=payload.severity,
+        source=payload.source,
         detected_at=datetime.utcnow(),
     )
     db.add(event)
     db.commit()
     db.refresh(event)
+
+    await _broadcast_monitoring_event(event)
 
     evidence_response = _try_attach_evidence(payload.evidence_image_base64, event, db)
 
@@ -96,6 +109,34 @@ def create_monitoring_event(
         status=event.status,
         evidence=evidence_response,
     )
+
+
+async def _broadcast_monitoring_event(event: MonitoringEvent) -> None:
+    """Best-effort admin alert for an already-committed MonitoringEvent.
+
+    Runs after the event is fully persisted (see create_monitoring_event)
+    and must never affect the HTTP response: no connected admins, a
+    disconnected socket, or any other broadcast failure is swallowed here
+    exactly like _try_attach_evidence swallows evidence-capture failures.
+    Only non-sensitive admin-alert metadata is sent -- no evidence image
+    data, filesystem paths, or student/auth fields.
+    """
+    try:
+        await websocket_manager.broadcast(
+            {
+                "type": "monitoring_event",
+                "event_id": event.id,
+                "session_id": event.session_id,
+                "event_type": event.event_type,
+                "severity": event.severity,
+                "status": event.status,
+            }
+        )
+    except Exception:
+        logger.exception(
+            "Failed to broadcast monitoring event %s to admin WebSocket clients",
+            event.id,
+        )
 
 
 def _try_attach_evidence(
@@ -144,3 +185,90 @@ def _try_attach_evidence(
         return None
 
     return EvidenceResponse.model_validate(evidence)
+
+
+@router.get(
+    "/events",
+    response_model=MonitoringEventListResponse,
+    dependencies=[Depends(require_admin)],
+)
+def list_monitoring_events(
+    event_status: EventStatus | None = Query(default=None, alias="status"),
+    severity: Severity | None = None,
+    event_type: EventType | None = None,
+    session_id: int | None = None,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    db: Session = Depends(get_db),
+) -> MonitoringEventListResponse:
+    """Admin-only paginated/filterable monitoring-event review queue.
+
+    Joins ExamSession -> Student -> Exam (none of these have ORM
+    relationships defined between them, so the joins are explicit) to give
+    the admin dashboard student/exam identity in one query, and
+    left-joins Evidence only to expose whether/which evidence exists --
+    Evidence.image_path is never selected or returned.
+    """
+    query = (
+        db.query(
+            MonitoringEvent,
+            Student.student_id.label("student_code"),
+            Student.full_name.label("student_full_name"),
+            Exam.id.label("exam_id"),
+            Exam.title.label("exam_title"),
+            Evidence.id.label("evidence_id"),
+        )
+        .join(ExamSession, ExamSession.id == MonitoringEvent.session_id)
+        .join(Student, Student.id == ExamSession.student_id)
+        .join(Exam, Exam.id == ExamSession.exam_id)
+        .outerjoin(Evidence, Evidence.event_id == MonitoringEvent.id)
+    )
+
+    if event_status is not None:
+        query = query.filter(MonitoringEvent.status == event_status)
+    if severity is not None:
+        query = query.filter(MonitoringEvent.severity == severity)
+    if event_type is not None:
+        query = query.filter(MonitoringEvent.event_type == event_type)
+    if session_id is not None:
+        query = query.filter(MonitoringEvent.session_id == session_id)
+
+    total = query.count()
+
+    rows = (
+        query.order_by(MonitoringEvent.detected_at.desc(), MonitoringEvent.id.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+
+    items = [
+        MonitoringEventAdminResponse(
+            id=event.id,
+            session_id=event.session_id,
+            event_type=event.event_type,
+            confidence=event.confidence,
+            duration_seconds=event.duration_seconds,
+            occurrences=event.occurrences,
+            severity=event.severity,
+            source=event.source,
+            detected_at=event.detected_at,
+            status=event.status,
+            evidence_id=evidence_id,
+            student_id=student_code,
+            student_full_name=student_full_name,
+            exam_id=exam_id,
+            exam_title=exam_title,
+        )
+        for event, student_code, student_full_name, exam_id, exam_title, evidence_id in rows
+    ]
+
+    total_pages = (total + page_size - 1) // page_size
+
+    return MonitoringEventListResponse(
+        items=items,
+        page=page,
+        page_size=page_size,
+        total=total,
+        total_pages=total_pages,
+    )

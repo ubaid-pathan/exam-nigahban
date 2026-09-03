@@ -591,8 +591,8 @@ Delivered early, as part of the Phase 5 AI Monitoring Foundation milestone (need
 - [ ] Evidence center
 - [ ] Evidence detail/review
 - [ ] Student management
-- [ ] Exam management
-- [ ] Question management
+- [x] Exam management
+- [x] Question management
 - [ ] Examination sessions
 - [ ] Monitoring settings
 - [ ] Audit history

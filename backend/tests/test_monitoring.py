@@ -220,3 +220,127 @@ def test_admin_cannot_record_monitoring_events(client, admin_user):
 def test_unauthenticated_monitoring_request_rejected(client):
     response = client.post("/api/monitoring/events", json=_valid_event_payload(1))
     assert response.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# MOBILE_PHONE (Milestone 6 Phase 2 Step 5 -- YOLOX Worker pipeline)
+# ---------------------------------------------------------------------------
+
+
+def _fake_jpeg_base64() -> str:
+    import base64
+
+    return base64.b64encode(b"\xff\xd8\xff" + b"\x00" * 64).decode("ascii")
+
+
+def test_mobile_phone_event_accepted_with_high_severity(
+    client, admin_user, student_user, student_profile
+):
+    admin_headers = _auth_headers(client, "admin1", "adminpass123")
+    exam = _create_active_exam(client, admin_headers)
+
+    student_headers = _auth_headers(client, "student1", "studentpass123")
+    session = client.post(
+        f"/api/student/exams/{exam['id']}/start", headers=student_headers
+    ).json()
+
+    response = client.post(
+        "/api/monitoring/events",
+        json=_valid_event_payload(
+            session["id"],
+            event_type="MOBILE_PHONE",
+            severity="high",
+            confidence=0.9213,
+            duration_seconds=1.1,
+            occurrences=1,
+        ),
+        headers=student_headers,
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["event_type"] == "MOBILE_PHONE"
+    assert body["severity"] == "high"
+
+
+def test_mobile_phone_event_with_evidence_stores_evidence(
+    client, admin_user, student_user, student_profile
+):
+    admin_headers = _auth_headers(client, "admin1", "adminpass123")
+    exam = _create_active_exam(client, admin_headers)
+
+    student_headers = _auth_headers(client, "student1", "studentpass123")
+    session = client.post(
+        f"/api/student/exams/{exam['id']}/start", headers=student_headers
+    ).json()
+
+    response = client.post(
+        "/api/monitoring/events",
+        json=_valid_event_payload(
+            session["id"],
+            event_type="MOBILE_PHONE",
+            severity="high",
+            evidence_image_base64=_fake_jpeg_base64(),
+        ),
+        headers=student_headers,
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["evidence"] is not None
+    assert body["evidence"]["event_id"] == body["id"]
+
+
+def test_event_source_defaults_to_browser_mediapipe_when_omitted(
+    client, admin_user, student_user, student_profile
+):
+    admin_headers = _auth_headers(client, "admin1", "adminpass123")
+    exam = _create_active_exam(client, admin_headers)
+
+    student_headers = _auth_headers(client, "student1", "studentpass123")
+    session = client.post(
+        f"/api/student/exams/{exam['id']}/start", headers=student_headers
+    ).json()
+
+    payload = _valid_event_payload(session["id"])
+    assert "source" not in payload  # this test is only meaningful if source is omitted
+
+    response = client.post(
+        "/api/monitoring/events", json=payload, headers=student_headers
+    )
+
+    assert response.status_code == 201
+    assert response.json()["source"] == "browser_mediapipe"
+
+
+def test_mobile_phone_event_source_can_be_set_to_browser_yolox(
+    client, admin_user, student_user, student_profile
+):
+    admin_headers = _auth_headers(client, "admin1", "adminpass123")
+    exam = _create_active_exam(client, admin_headers)
+
+    student_headers = _auth_headers(client, "student1", "studentpass123")
+    session = client.post(
+        f"/api/student/exams/{exam['id']}/start", headers=student_headers
+    ).json()
+
+    response = client.post(
+        "/api/monitoring/events",
+        json=_valid_event_payload(
+            session["id"],
+            event_type="MOBILE_PHONE",
+            severity="high",
+            source="browser_yolox",
+        ),
+        headers=student_headers,
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["source"] == "browser_yolox"
+
+    # And confirm it's actually the persisted value, not just echoed back.
+    row = client.get(
+        "/api/monitoring/events", headers=admin_headers
+    ).json()["items"][0]
+    assert row["source"] == "browser_yolox"

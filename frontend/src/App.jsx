@@ -4,7 +4,15 @@ import RequireRole from './routes/RequireRole'
 import LoginPage from './pages/LoginPage'
 import UnauthorizedPage from './pages/UnauthorizedPage'
 import NotFoundPage from './pages/NotFoundPage'
-import AdminPlaceholderPage from './pages/AdminPlaceholderPage'
+import AdminLayout from './layouts/AdminLayout'
+import DashboardPage from './pages/admin/DashboardPage'
+import MonitoringEventsPage from './pages/admin/MonitoringEventsPage'
+import AuditHistoryPage from './pages/admin/AuditHistoryPage'
+import ExamManagementPage from './pages/admin/ExamManagementPage'
+import ExamQuestionsPage from './pages/admin/ExamQuestionsPage'
+import StudentManagementPage from './pages/admin/StudentManagementPage'
+import AdminManagementPage from './pages/admin/AdminManagementPage'
+import UsersPage from './pages/admin/UsersPage'
 import StudentLayout from './layouts/StudentLayout'
 import StudentHome from './pages/student/StudentHome'
 import ExamListPage from './pages/student/ExamListPage'
@@ -13,6 +21,7 @@ import InstructionsPage from './pages/student/InstructionsPage'
 import ReadinessPage from './pages/student/ReadinessPage'
 import TakeExamPage from './pages/student/TakeExamPage'
 import ResultPage from './pages/student/ResultPage'
+import PhoneDetectionSpikePage from './spike/PhoneDetectionSpikePage'
 
 export default function App() {
   return (
@@ -22,7 +31,21 @@ export default function App() {
 
       <Route element={<ProtectedRoute />}>
         <Route element={<RequireRole role="admin" />}>
-          <Route path="/admin" element={<AdminPlaceholderPage />} />
+          <Route element={<AdminLayout />}>
+            <Route path="/admin" element={<DashboardPage />} />
+            <Route path="/admin/monitoring" element={<MonitoringEventsPage />} />
+            <Route path="/admin/exams" element={<ExamManagementPage />} />
+            <Route path="/admin/exams/:examId/questions" element={<ExamQuestionsPage />} />
+            <Route path="/admin/users" element={<UsersPage />} />
+            {/* Superseded by /admin/users (Students + Administrators
+                consolidated into one Users feature) and no longer linked
+                from the sidebar, but kept working rather than deleted --
+                still reachable directly and by anything that already
+                references these URLs. */}
+            <Route path="/admin/students" element={<StudentManagementPage />} />
+            <Route path="/admin/administrators" element={<AdminManagementPage />} />
+            <Route path="/admin/audit" element={<AuditHistoryPage />} />
+          </Route>
         </Route>
 
         <Route element={<RequireRole role="student" />}>
@@ -37,6 +60,11 @@ export default function App() {
           </Route>
         </Route>
       </Route>
+
+      {/* Milestone 2 developer-only AI spike -- unlinked from any nav, not
+          gated behind auth, isolated from the production exam/monitoring
+          routes above. Remove before this feature reaches production. */}
+      <Route path="/dev/phone-detection-spike" element={<PhoneDetectionSpikePage />} />
 
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="*" element={<NotFoundPage />} />
