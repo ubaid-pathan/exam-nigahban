@@ -170,7 +170,11 @@ def _try_attach_evidence(
         event_id=event.id,
         image_path=relative_path,
         captured_at=captured_at,
-        metadata_json={"content_type": "image/jpeg", "size_bytes": len(image_bytes)},
+        metadata_json={
+            "content_type": "image/jpeg",
+            "size_bytes": len(image_bytes),
+            "image_base64": evidence_image_base64,
+        },
     )
     try:
         db.add(evidence)

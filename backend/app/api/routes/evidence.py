@@ -1,3 +1,5 @@
+import base64
+
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -57,10 +59,21 @@ def get_evidence_image(evidence_id: int, db: Session = Depends(get_db)) -> Respo
     try:
         image_bytes = read_evidence_image(evidence.image_path)
     except OSError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Evidence image file not found",
-        )
+        # Render's free filesystem is ephemeral: images are lost on redeploy.
+        # We keep a base64 backup in the DB metadata so evidence survives.
+        base64_image = evidence.metadata_json.get("image_base64")
+        if not base64_image:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Evidence image file not found",
+            )
+        try:
+            image_bytes = base64.b64decode(base64_image, validate=True)
+        except (ValueError, TypeError):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Evidence image file not found",
+            )
     return Response(content=image_bytes, media_type="image/jpeg")
 
 
