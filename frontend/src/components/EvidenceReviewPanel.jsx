@@ -132,7 +132,7 @@ export default function EvidenceReviewPanel({ event, onClose, onReviewed }) {
                   <dt className="col-5">Confidence</dt>
                   <dd className="col-7">{(event.confidence * 100).toFixed(1)}%</dd>
                   <dt className="col-5">Duration</dt>
-                  <dd className="col-7">{event.duration_seconds}s</dd>
+                  <dd className="col-7">{Number(event.duration_seconds).toFixed(2)}s</dd>
                   <dt className="col-5">Detected At</dt>
                   <dd className="col-7">{formatDateTimePKT(event.detected_at)}</dd>
                 </dl>

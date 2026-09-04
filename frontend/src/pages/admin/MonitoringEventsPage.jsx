@@ -180,7 +180,7 @@ export default function MonitoringEventsPage() {
                     <td>{item.exam_title}</td>
                     <td>{eventTypeLabel(item.event_type)}</td>
                     <td>{(item.confidence * 100).toFixed(1)}%</td>
-                    <td>{item.duration_seconds}s</td>
+                    <td>{Number(item.duration_seconds).toFixed(2)}s</td>
                     <td>{item.occurrences}</td>
                     <td>
                       <span className={`badge ${eventStatusBadgeClass(item.status)}`}>
