@@ -1,0 +1,6 @@
+backend/
+ai/
+evidence/
+spike-working-changes.patch
+*.md
+*.log
