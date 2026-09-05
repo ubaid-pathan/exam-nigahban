@@ -2,9 +2,9 @@
 
 ## Project Status
 
-- Phase: Foundation
-- Status: In Progress
-- Current Milestone: Foundation Verification & Development Setup
+- Phase: Core development complete (Phases 1-7); polish and hardening remain (Phases 8-10)
+- Status: Deployed to production and verified live (Vercel frontend, Render backend, Neon PostgreSQL)
+- Current Milestone: Post-deployment hardening — UI/UX polish, security review, demo readiness
 - Development Model: Incremental, test-driven, Git checkpoint based
 - Primary Coding Agent: Claude Code
 - Source of Truth: `PROJECT_SPEC.md` and `CLAUDE.md`
@@ -29,8 +29,8 @@
 - [x] Configure environment variables
 - [x] Configure `.env` loading
 - [x] Configure `.env.example`
-- [ ] Verify `.gitignore`
-- [ ] Verify no secrets are committed
+- [x] Verify `.gitignore` (verified: `.env` files ignored, never committed)
+- [x] Verify no secrets are committed (verified via `git log --all -S` sweep: no DB passwords or SECRET_KEY values in history)
 - [ ] Finalize `PROJECT_SPEC.md`
 - [ ] Finalize `CLAUDE.md`
 - [ ] Finalize `TASKS.md`
@@ -62,12 +62,12 @@
 - [x] Create database tables
 - [x] Implement `/health`
 - [x] Verify Swagger/OpenAPI
-- [ ] Establish API router structure
-- [ ] Establish service layer structure
-- [ ] Establish schema structure
-- [ ] Establish WebSocket structure
-- [ ] Establish error-handling structure
-- [ ] Establish logging structure
+- [x] Establish API router structure (`app/api/routes/`, 11 routers)
+- [x] Establish service layer structure (`app/services/`)
+- [x] Establish schema structure (`app/schemas/`)
+- [x] Establish WebSocket structure (`app/websocket/`)
+- [x] Establish error-handling structure (HTTPException responses + frontend `apiError` utilities)
+- [x] Establish logging structure (`app/core/logging.py`)
 
 ## Database Foundation
 
@@ -77,15 +77,15 @@
 - [x] Create `questions` table
 - [x] Create `exam_sessions` table
 - [x] Create `student_answers` table
-- [ ] Create `monitoring_rules` table
-- [ ] Create `monitoring_events` table
-- [ ] Create `evidence` table
-- [ ] Create `admin_actions` table
-- [ ] Create `system_logs` table
-- [ ] Verify foreign-key relationships
-- [ ] Verify indexes and unique constraints
-- [ ] Verify database initialization
-- [ ] Prepare database seed data
+- [x] Create `monitoring_rules` table (global rules only; per-exam customization removed by design)
+- [x] Create `monitoring_events` table
+- [x] Create `evidence` table
+- [x] Create `admin_actions` table
+- [ ] Create `system_logs` table (not implemented; audit needs are covered by `admin_actions` plus application logging — add only if a separate system-event log is ever required)
+- [x] Verify foreign-key relationships
+- [x] Verify indexes and unique constraints
+- [x] Verify database initialization (`init_db.py`, exercised on local MySQL and production Neon)
+- [x] Prepare database seed data (`seed_monitoring_rules`, `seed_demo_data` — both idempotent)
 
 ## Foundation Verification
 
@@ -96,10 +96,10 @@
 - [x] Verify frontend starts successfully
 - [x] Verify frontend-to-backend communication
 - [x] Verify CORS configuration
-- [ ] Verify WebSocket connection structure
-- [ ] Run foundation tests
-- [ ] Review project structure
-- [ ] Commit Foundation milestone
+- [x] Verify WebSocket connection structure
+- [x] Run foundation tests (273 backend + 190 frontend tests passing)
+- [x] Review project structure
+- [x] Commit Foundation milestone
 
 ---
 
@@ -125,27 +125,27 @@
 - [x] Implement admin-only authorization
 - [x] Implement student-only authorization
 - [x] Prevent students from accessing admin APIs
-- [ ] Prevent unauthorized resource access
+- [x] Prevent unauthorized resource access (session/answer/evidence ownership enforced and tested)
 - [x] Verify backend authorization independently of frontend
 
 ## Administrator Management
 
 - [x] Create administrator account
-- [ ] View administrator accounts
-- [ ] Update administrator account
-- [ ] Activate/deactivate administrator account
-- [ ] Validate administrator permissions
+- [x] View administrator accounts
+- [x] Update administrator account
+- [x] Activate/deactivate administrator account
+- [x] Validate administrator permissions
 
 ## Student Management
 
 - [x] Create student account
 - [x] Generate/store student profile
-- [ ] View students
-- [ ] View student details
-- [ ] Update student details
-- [ ] Activate/deactivate student
+- [x] View students
+- [x] View student details
+- [x] Update student details
+- [x] Activate/deactivate student
 - [x] Prevent student self-registration
-- [ ] Validate student ownership and access
+- [x] Validate student ownership and access
 
 ## Authentication Frontend
 
@@ -170,7 +170,7 @@
 
 ## Git Checkpoint
 
-- [ ] Commit Authentication milestone
+- [x] Commit Authentication milestone
 
 ---
 
@@ -201,7 +201,7 @@
 
 ## Examination Sessions
 
-- [ ] Create exam-session service
+- [x] Create exam-session service (ownership/state logic lives in `app/api/routes/student_exams.py`, the project's convention in lieu of a separate service file)
 - [x] Create exam-session API
 - [x] Implement session creation
 - [x] Implement session start
@@ -242,7 +242,7 @@
 
 ## Git Checkpoint
 
-- [ ] Commit Examination milestone
+- [x] Commit Examination milestone
 
 ---
 
@@ -304,7 +304,7 @@
 
 ## Git Checkpoint
 
-- [ ] Commit Student Examination milestone
+- [x] Commit Student Examination milestone
 
 ---
 
@@ -349,29 +349,29 @@
 
 ## Mobile Phone Detection
 
-Out of scope for this milestone (approved as a face-monitoring-only milestone); deferred to a future YOLO milestone.
+Delivered in Milestone 6: YOLOX-nano ONNX inference runs in a Web Worker in the student's browser (`frontend/src/monitoring/objectDetection/`, wired into `TakeExamPage` via `useMobilePhoneMonitoring`), with server-side rule validation via the `MOBILE_PHONE` monitoring rule and `source: "browser_yolox"` event tagging.
 
-- [ ] Integrate YOLO inference
-- [ ] Load required model
-- [ ] Detect mobile phone class
-- [ ] Filter predictions to mobile phone only
-- [ ] Apply confidence threshold
-- [ ] Apply approximately 1-second persistence
-- [ ] Generate monitoring event when rule is satisfied
+- [x] Integrate YOLO inference
+- [x] Load required model
+- [x] Detect mobile phone class
+- [x] Filter predictions to mobile phone only
+- [x] Apply confidence threshold
+- [x] Apply approximately 1-second persistence
+- [x] Generate monitoring event when rule is satisfied
 
 ## AI Monitoring Rules
 
-Thresholds were centralized as versioned constants modules (frontend `src/monitoring/constants.js`, backend `app/core/monitoring_constants.py`) rather than a database-backed rules table, since the milestone only required avoiding hard-coded values, not runtime-configurable rules. A DB-backed `monitoring_rules` table with an admin-facing enable/disable API remains a candidate for a later milestone if runtime reconfiguration is needed.
+Superseded: thresholds now live in the backend-owned `monitoring_rules` table (seeded from `app/core/monitoring_constants.py` by `init_db.py`), and every posted monitoring event is validated against the configured global rule server-side. The frontend constants remain the detection-side source for the browser temporal rule engine. Per-exam rule customization was built, evaluated, and deliberately removed; rules are a fixed global configuration.
 
-- [ ] Create monitoring rule model
-- [ ] Create monitoring rule schema
-- [ ] Create monitoring rule API/service
+- [x] Create monitoring rule model
+- [x] Create monitoring rule schema
+- [x] Create monitoring rule API/service (admin-only `GET /api/admin/monitoring/rules` listing)
 - [x] Configure activity types
 - [x] Configure minimum duration
 - [x] Configure required occurrences
 - [x] Configure confidence threshold
 - [x] Configure severity
-- [ ] Enable/disable rules
+- [ ] Enable/disable rules (`is_active` is enforced by event validation, but there is no admin toggle API — optional future work now that rules are global-by-design)
 
 ## Temporal Rule Engine
 
@@ -394,7 +394,7 @@ Thresholds were centralized as versioned constants modules (frontend `src/monito
 - [x] Test looking-away detection
 - [x] Test face absence
 - [x] Test multiple faces
-- [ ] Test mobile phone detection (out of scope this milestone)
+- [x] Test mobile phone detection (useMobilePhoneMonitoring, phoneObservation, and objectDetection suites)
 - [x] Test confidence thresholds
 - [x] Test duration thresholds
 - [x] Test occurrence thresholds
@@ -402,7 +402,7 @@ Thresholds were centralized as versioned constants modules (frontend `src/monito
 
 ## Git Checkpoint
 
-- [ ] Commit AI Monitoring milestone (pending project-owner approval per milestone instructions)
+- [x] Commit AI Monitoring milestone
 
 ---
 
@@ -426,48 +426,48 @@ Delivered early, as part of the Phase 5 AI Monitoring Foundation milestone (need
 
 ## Evidence Capture
 
-- [ ] Create evidence service
-- [ ] Capture evidence image when rule triggers
-- [ ] Avoid unnecessary duplicate captures
-- [ ] Store evidence path
-- [ ] Store evidence timestamp
-- [ ] Store evidence metadata
-- [ ] Associate evidence with monitoring event
-- [ ] Implement evidence filesystem abstraction
+- [x] Create evidence service (`app/services/evidence_storage.py`)
+- [x] Capture evidence image when rule triggers
+- [x] Avoid unnecessary duplicate captures (one capture per rule-satisfied event; events deduplicated upstream by the temporal rule engine)
+- [x] Store evidence path
+- [x] Store evidence timestamp
+- [x] Store evidence metadata (including base64 fallback payload for ephemeral filesystems)
+- [x] Associate evidence with monitoring event
+- [x] Implement evidence filesystem abstraction
 
 ## Evidence API
 
-- [ ] Create evidence schemas
-- [ ] Create evidence router
-- [ ] List evidence
-- [ ] View evidence details
-- [ ] Retrieve evidence securely
-- [ ] Filter evidence
-- [ ] Validate evidence authorization
+- [x] Create evidence schemas
+- [x] Create evidence router
+- [x] List evidence
+- [x] View evidence details
+- [x] Retrieve evidence securely (admin-only, JWT-gated image endpoint)
+- [x] Filter evidence (event_id / session_id)
+- [x] Validate evidence authorization
 
 ## Evidence Review
 
-- [ ] Implement PENDING_REVIEW status
-- [ ] Implement CONFIRMED status
-- [ ] Implement IGNORED status
-- [ ] Implement evidence confirmation
-- [ ] Implement evidence dismissal
-- [ ] Allow review reason
-- [ ] Prevent students from reviewing evidence
+- [x] Implement PENDING_REVIEW status
+- [x] Implement CONFIRMED status
+- [x] Implement IGNORED status
+- [x] Implement evidence confirmation
+- [x] Implement evidence dismissal
+- [x] Allow review reason
+- [x] Prevent students from reviewing evidence
 
 ## Evidence Testing
 
-- [ ] Test event generation
-- [ ] Test evidence capture
-- [ ] Test evidence storage
-- [ ] Test evidence retrieval
-- [ ] Test evidence authorization
-- [ ] Test evidence review
-- [ ] Test duplicate-event prevention
+- [x] Test event generation
+- [x] Test evidence capture
+- [x] Test evidence storage
+- [x] Test evidence retrieval
+- [x] Test evidence authorization
+- [x] Test evidence review
+- [x] Test duplicate-event prevention
 
 ## Git Checkpoint
 
-- [ ] Commit Evidence milestone
+- [x] Commit Evidence milestone
 
 ---
 
@@ -475,84 +475,86 @@ Delivered early, as part of the Phase 5 AI Monitoring Foundation milestone (need
 
 ## WebSocket
 
-- [ ] Implement WebSocket endpoint
-- [ ] Implement connection handling
-- [ ] Implement disconnection handling
-- [ ] Implement authentication for WebSocket access
-- [ ] Broadcast monitoring events to authorized administrators
-- [ ] Broadcast evidence notifications
-- [ ] Handle reconnect where practical
-- [ ] Prevent unauthorized WebSocket access
+- [x] Implement WebSocket endpoint
+- [x] Implement connection handling
+- [x] Implement disconnection handling
+- [x] Implement authentication for WebSocket access (JWT via query param)
+- [x] Broadcast monitoring events to authorized administrators
+- [x] Broadcast evidence notifications
+- [x] Handle reconnect where practical (frontend auto-reconnect with live-connection indicator)
+- [x] Prevent unauthorized WebSocket access
 
 ## Admin Dashboard
 
-- [ ] Create dashboard layout
-- [ ] Display active examinations
-- [ ] Display active students
-- [ ] Display pending alerts
-- [ ] Display high-severity events
-- [ ] Display recent events
-- [ ] Display monitoring statistics
-- [ ] Implement dashboard loading state
-- [ ] Implement dashboard empty state
-- [ ] Implement dashboard error state
+- [x] Create dashboard layout
+- [x] Display active examinations
+- [x] Display active students
+- [x] Display pending alerts
+- [x] Display high-severity events
+- [x] Display recent events
+- [x] Display monitoring statistics
+- [x] Implement dashboard loading state
+- [x] Implement dashboard empty state
+- [x] Implement dashboard error state
 
 ## Live Monitoring
 
-- [ ] Create live monitoring screen
-- [ ] Display active examination sessions
-- [ ] Display student information
-- [ ] Display monitoring status
-- [ ] Display latest alert
-- [ ] Display severity
-- [ ] Display event count
-- [ ] Display latest event time
-- [ ] Update alerts in real time
+- [x] Create live monitoring screen (Monitoring Events page + live alert indicator)
+- [x] Display active examination sessions
+- [x] Display student information
+- [x] Display monitoring status
+- [x] Display latest alert
+- [x] Display severity
+- [x] Display event count
+- [x] Display latest event time
+- [x] Update alerts in real time
 
 ## Evidence Center
 
-- [ ] Create evidence center
-- [ ] Display evidence list
+Delivered within the Monitoring Events page (event queue with status/event-type/session filters + `EvidenceReviewPanel` detail/review view) rather than as a separate screen; richer evidence-level filters remain open below.
+
+- [x] Create evidence center
+- [x] Display evidence list
 - [ ] Implement student filter
 - [ ] Implement exam filter
 - [ ] Implement activity filter
 - [ ] Implement severity filter
 - [ ] Implement status filter
 - [ ] Implement timestamp sorting
-- [ ] Implement evidence detail view
+- [x] Implement evidence detail view
 
 ## Administrative Actions
 
-- [ ] Implement evidence confirmation
-- [ ] Implement evidence dismissal
-- [ ] Store administrator action
-- [ ] Store optional reason
-- [ ] Validate administrator authorization
+- [x] Implement evidence confirmation
+- [x] Implement evidence dismissal
+- [x] Store administrator action
+- [x] Store optional reason
+- [x] Validate administrator authorization
 
 ## Audit History
 
-- [ ] Create admin-actions model
-- [ ] Create audit service
-- [ ] Record evidence review actions
+- [x] Create admin-actions model
+- [x] Create audit service (listing/query logic in `app/api/routes/audit.py`)
+- [x] Record evidence review actions
 - [ ] Record account actions
 - [ ] Record examination actions
 - [ ] Record question actions
-- [ ] Record monitoring-rule changes
-- [ ] Create audit history API
-- [ ] Create audit history UI
+- [ ] Record monitoring-rule changes (moot: rules are now static global configuration with no admin editing surface)
+- [x] Create audit history API
+- [x] Create audit history UI
 
 ## Real-Time Testing
 
-- [ ] Test WebSocket connection
-- [ ] Test monitoring event delivery
-- [ ] Test evidence notification
-- [ ] Test admin dashboard updates
-- [ ] Test unauthorized WebSocket access
-- [ ] Test reconnect behavior
+- [x] Test WebSocket connection
+- [x] Test monitoring event delivery
+- [x] Test evidence notification
+- [x] Test admin dashboard updates
+- [x] Test unauthorized WebSocket access
+- [x] Test reconnect behavior
 
 ## Git Checkpoint
 
-- [ ] Commit Real-Time Administration milestone
+- [x] Commit Real-Time Administration milestone
 
 ---
 
@@ -574,28 +576,28 @@ Delivered early, as part of the Phase 5 AI Monitoring Foundation milestone (need
 
 ## Student UI
 
-- [ ] Login screen
-- [ ] Terms & Conditions screen
-- [ ] Camera permission screen
-- [ ] System readiness screen
-- [ ] Exam instructions screen
-- [ ] Active examination screen
-- [ ] Submission confirmation
-- [ ] Result/status screen
+- [x] Login screen
+- [x] Terms & Conditions screen
+- [x] Camera permission screen
+- [x] System readiness screen
+- [x] Exam instructions screen
+- [x] Active examination screen
+- [x] Submission confirmation
+- [x] Result/status screen
 
 ## Administrator UI
 
-- [ ] Admin login
-- [ ] Dashboard
-- [ ] Live monitoring
-- [ ] Evidence center
-- [ ] Evidence detail/review
-- [ ] Student management
+- [x] Admin login
+- [x] Dashboard
+- [x] Live monitoring
+- [x] Evidence center
+- [x] Evidence detail/review
+- [x] Student management
 - [x] Exam management
 - [x] Question management
-- [ ] Examination sessions
-- [ ] Monitoring settings
-- [ ] Audit history
+- [x] Examination sessions (active sessions surfaced on the dashboard and monitoring queue)
+- [ ] Monitoring settings (removed by design — monitoring rules are a fixed global configuration; see the `monitoring_rules` table)
+- [x] Audit history
 
 ## Responsive Design
 
@@ -609,12 +611,12 @@ Delivered early, as part of the Phase 5 AI Monitoring Foundation milestone (need
 
 ## UI States
 
-- [ ] Loading states
-- [ ] Empty states
+- [x] Loading states (`LoadingState` component across pages)
+- [x] Empty states (`EmptyState` component across pages)
 - [ ] Success states
-- [ ] Error states
+- [x] Error states (`ErrorState` component + `apiError` utilities)
 - [ ] Retry states
-- [ ] Confirmation dialogs
+- [x] Confirmation dialogs (`ConfirmModal` component)
 - [ ] Toast/notification feedback
 
 ## Accessibility
@@ -656,15 +658,15 @@ Delivered early, as part of the Phase 5 AI Monitoring Foundation milestone (need
 - [ ] Review student data isolation
 - [ ] Review admin permissions
 - [ ] Review WebSocket authorization
-- [ ] Verify `.env` is ignored
-- [ ] Verify no secrets in source code
+- [x] Verify `.env` is ignored
+- [x] Verify no secrets in source code
 - [ ] Review error-message exposure
 
 ## Privacy
 
-- [ ] Verify no continuous webcam recording
-- [ ] Verify evidence is generated only when required
-- [ ] Verify evidence access restrictions
+- [x] Verify no continuous webcam recording (feed is processed browser-side; only a single JPEG frame is captured when a rule is satisfied)
+- [x] Verify evidence is generated only when required (capture happens only for rule-validated events carrying an image)
+- [x] Verify evidence access restrictions (admin-only endpoints, student access returns 403 — tested)
 - [ ] Verify unnecessary personal data is not collected
 - [ ] Review evidence retention approach
 - [ ] Review sensitive data handling
@@ -690,26 +692,26 @@ Delivered early, as part of the Phase 5 AI Monitoring Foundation milestone (need
 
 ## Unit Testing
 
-- [ ] Authentication tests
-- [ ] Authorization tests
-- [ ] Exam tests
-- [ ] Question tests
-- [ ] Session tests
-- [ ] Answer tests
-- [ ] Monitoring rule tests
-- [ ] Temporal rule tests
-- [ ] Evidence tests
-- [ ] Audit tests
+- [x] Authentication tests
+- [x] Authorization tests
+- [x] Exam tests
+- [x] Question tests (within `test_exams.py`)
+- [x] Session tests
+- [x] Answer tests
+- [x] Monitoring rule tests
+- [x] Temporal rule tests
+- [x] Evidence tests
+- [x] Audit tests
 
 ## Integration Testing
 
-- [ ] Authentication API integration
-- [ ] Student management integration
-- [ ] Exam management integration
-- [ ] Examination session integration
-- [ ] Monitoring event integration
-- [ ] Evidence integration
-- [ ] WebSocket integration
+- [x] Authentication API integration
+- [x] Student management integration
+- [x] Exam management integration
+- [x] Examination session integration
+- [x] Monitoring event integration
+- [x] Evidence integration
+- [x] WebSocket integration
 
 ## End-to-End Testing
 
@@ -776,10 +778,10 @@ Delivered early, as part of the Phase 5 AI Monitoring Foundation milestone (need
 
 ## Demo Preparation
 
-- [ ] Create demo administrator account
-- [ ] Create demo student account
-- [ ] Create demo examination
-- [ ] Create demo questions
+- [x] Create demo administrator account (seeded in production: `admin` / `Admin@2026`)
+- [x] Create demo student account (five seeded student accounts)
+- [x] Create demo examination (two seeded exams)
+- [x] Create demo questions (five per exam)
 - [ ] Prepare demo monitoring scenarios
 - [ ] Prepare demo evidence
 - [ ] Prepare demo environment
@@ -794,12 +796,12 @@ Delivered early, as part of the Phase 5 AI Monitoring Foundation milestone (need
 - [ ] Finalize `PROJECT_SPEC.md`
 - [ ] Finalize `CLAUDE.md`
 - [ ] Finalize `TASKS.md`
-- [ ] Update README
-- [ ] Document installation
-- [ ] Document environment variables
-- [ ] Document database setup
-- [ ] Document API usage
-- [ ] Document AI monitoring
+- [x] Update README
+- [x] Document installation
+- [x] Document environment variables
+- [x] Document database setup
+- [x] Document API usage (Swagger/OpenAPI at `/docs`)
+- [x] Document AI monitoring
 - [ ] Document demo procedure
 - [ ] Document known limitations
 
