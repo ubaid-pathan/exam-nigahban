@@ -178,8 +178,15 @@ def test_status_filter(client, admin_user, student_user, student_profile):
 
 
 def test_severity_filter(client, admin_user, student_user, student_profile):
+    # FACE_ABSENT is configured as severity "high"; HEAD_LEFT is "medium".
     admin_headers, student_headers, exam, session, _ = _bootstrap_single_event(
-        client, admin_user, student_user, student_profile, severity="high"
+        client,
+        admin_user,
+        student_user,
+        student_profile,
+        event_type="FACE_ABSENT",
+        severity="high",
+        duration_seconds=5.0,
     )
 
     matching = client.get(
@@ -195,7 +202,13 @@ def test_severity_filter(client, admin_user, student_user, student_profile):
 
 def test_event_type_filter(client, admin_user, student_user, student_profile):
     admin_headers, _, _, _, _ = _bootstrap_single_event(
-        client, admin_user, student_user, student_profile, event_type="FACE_ABSENT"
+        client,
+        admin_user,
+        student_user,
+        student_profile,
+        event_type="FACE_ABSENT",
+        severity="high",
+        duration_seconds=5.0,
     )
 
     matching = client.get(
@@ -240,9 +253,16 @@ def test_combined_filters(client, admin_user, student_user, student_profile):
         student_profile,
         event_type="FACE_ABSENT",
         severity="high",
+        duration_seconds=5.0,
     )
     # A second, non-matching event in the same session.
-    _create_event(client, student_headers, session["id"], event_type="HEAD_LEFT", severity="medium")
+    _create_event(
+        client,
+        student_headers,
+        session["id"],
+        event_type="HEAD_LEFT",
+        severity="medium",
+    )
 
     response = client.get(
         "/api/monitoring/events"

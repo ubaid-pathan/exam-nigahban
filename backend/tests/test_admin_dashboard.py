@@ -301,11 +301,28 @@ def test_high_severity_pending_excludes_reviewed_events(
     exam = _create_active_exam(client, admin_headers)
     session = _start_session(client, student_headers, exam["id"])
 
-    still_pending_high = _create_event(client, student_headers, session["id"], severity="high")
-    reviewed_high = _create_event(
-        client, student_headers, session["id"], severity="high", with_evidence=True
+    # Use FACE_ABSENT because its configured severity is "high"; HEAD_LEFT is
+    # configured as "medium" and would be rejected by server-side rule validation.
+    # Duration must satisfy the FACE_ABSENT rule's 5-second minimum.
+    still_pending_high = _create_event(
+        client,
+        student_headers,
+        session["id"],
+        event_type="FACE_ABSENT",
+        severity="high",
+        duration_seconds=5.0,
     )
-    _create_event(client, student_headers, session["id"], severity="low")
+    reviewed_high = _create_event(
+        client,
+        student_headers,
+        session["id"],
+        event_type="FACE_ABSENT",
+        severity="high",
+        duration_seconds=5.0,
+        with_evidence=True,
+    )
+    # A non-high event to confirm the high-severity pending counter is filtered.
+    _create_event(client, student_headers, session["id"], event_type="HEAD_LEFT", severity="medium")
 
     _review(client, admin_headers, reviewed_high["evidence"]["id"], "CONFIRMED")
 

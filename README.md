@@ -126,7 +126,6 @@ Administrators can:
 - Confirm or dismiss monitoring events
 - Record administrative actions
 - View audit history
-- Configure monitoring rules where authorized
 
 ---
 

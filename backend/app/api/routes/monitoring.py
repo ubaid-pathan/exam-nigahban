@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import require_admin
 from app.api.routes.student_exams import get_current_student
-from app.db.models import Evidence, Exam, ExamSession, MonitoringEvent, Student
+from app.db.models import Evidence, Exam, ExamSession, MonitoringEvent, MonitoringRule, Student
 from app.db.session import get_db
 from app.schemas.evidence import EvidenceResponse
 from app.schemas.monitoring import (
@@ -29,6 +29,72 @@ from app.websocket.manager import manager as websocket_manager
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/monitoring", tags=["monitoring"])
+
+
+def _validate_event_against_rule(
+    payload: MonitoringEventCreate,
+    db: Session,
+) -> None:
+    """Verify an incoming monitoring event satisfies its configured rule.
+
+    Prevents spoofed or under-threshold events from being persisted.  If the
+    event type has no rule or the rule is inactive, the request is rejected
+    with a 422 so the backend cannot be used to create arbitrary/unconfigured
+    events.
+    """
+    rule = (
+        db.query(MonitoringRule)
+        .filter(MonitoringRule.event_type == payload.event_type)
+        .first()
+    )
+
+    if rule is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"Monitoring rule for '{payload.event_type}' is not configured",
+        )
+
+    if not rule.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"Monitoring rule for '{payload.event_type}' is currently disabled",
+        )
+
+    if payload.severity != rule.severity:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=(
+                f"Expected severity '{rule.severity}' for '{payload.event_type}', "
+                f"got '{payload.severity}'"
+            ),
+        )
+
+    if payload.confidence < rule.confidence_threshold:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=(
+                f"Confidence {payload.confidence} is below the threshold "
+                f"{rule.confidence_threshold} for '{payload.event_type}'"
+            ),
+        )
+
+    if payload.duration_seconds < rule.min_duration_seconds:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=(
+                f"Duration {payload.duration_seconds}s is below the minimum "
+                f"{rule.min_duration_seconds}s for '{payload.event_type}'"
+            ),
+        )
+
+    if payload.occurrences < rule.required_occurrences:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=(
+                f"Occurrences {payload.occurrences} is below the required "
+                f"{rule.required_occurrences} for '{payload.event_type}'"
+            ),
+        )
 
 
 def _get_owned_active_session_or_404(
@@ -73,7 +139,8 @@ async def create_monitoring_event(
     student: Student = Depends(get_current_student),
     db: Session = Depends(get_db),
 ) -> MonitoringEventResponse:
-    _get_owned_active_session_or_404(payload.session_id, student, db)
+    session = _get_owned_active_session_or_404(payload.session_id, student, db)
+    _validate_event_against_rule(payload, db)
 
     # The event is created and committed first, independently of evidence.
     # Nothing below this point may ever cause the event itself to fail or

@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from app.db.models import ExamSession, MonitoringEvent, Student, User
+from app.db.models import ExamSession, MonitoringEvent, MonitoringRule, Student, User
 from app.core.security import hash_password
 
 
@@ -344,3 +344,144 @@ def test_mobile_phone_event_source_can_be_set_to_browser_yolox(
         "/api/monitoring/events", headers=admin_headers
     ).json()["items"][0]
     assert row["source"] == "browser_yolox"
+
+
+# ---------------------------------------------------------------------------
+# Phase 2: server-side validation against configured monitoring rules
+# ---------------------------------------------------------------------------
+
+
+def test_event_rejected_when_duration_below_rule_threshold(
+    client, admin_user, student_user, student_profile
+):
+    admin_headers = _auth_headers(client, "admin1", "adminpass123")
+    exam = _create_active_exam(client, admin_headers)
+
+    student_headers = _auth_headers(client, "student1", "studentpass123")
+    session = client.post(
+        f"/api/student/exams/{exam['id']}/start", headers=student_headers
+    ).json()
+
+    response = client.post(
+        "/api/monitoring/events",
+        json=_valid_event_payload(session["id"], duration_seconds=1.5),
+        headers=student_headers,
+    )
+
+    assert response.status_code == 422
+    assert "below the minimum" in response.json()["detail"]
+
+
+def test_event_rejected_when_occurrences_below_rule_threshold(
+    client, admin_user, student_user, student_profile
+):
+    admin_headers = _auth_headers(client, "admin1", "adminpass123")
+    exam = _create_active_exam(client, admin_headers)
+
+    student_headers = _auth_headers(client, "student1", "studentpass123")
+    session = client.post(
+        f"/api/student/exams/{exam['id']}/start", headers=student_headers
+    ).json()
+
+    response = client.post(
+        "/api/monitoring/events",
+        json=_valid_event_payload(session["id"], occurrences=1),
+        headers=student_headers,
+    )
+
+    assert response.status_code == 422
+    assert "below the required" in response.json()["detail"]
+
+
+def test_event_rejected_when_confidence_below_rule_threshold(
+    client, admin_user, student_user, student_profile
+):
+    admin_headers = _auth_headers(client, "admin1", "adminpass123")
+    exam = _create_active_exam(client, admin_headers)
+
+    student_headers = _auth_headers(client, "student1", "studentpass123")
+    session = client.post(
+        f"/api/student/exams/{exam['id']}/start", headers=student_headers
+    ).json()
+
+    response = client.post(
+        "/api/monitoring/events",
+        json=_valid_event_payload(session["id"], confidence=0.5),
+        headers=student_headers,
+    )
+
+    assert response.status_code == 422
+    assert "below the threshold" in response.json()["detail"]
+
+
+def test_event_rejected_when_severity_does_not_match_rule(
+    client, admin_user, student_user, student_profile
+):
+    admin_headers = _auth_headers(client, "admin1", "adminpass123")
+    exam = _create_active_exam(client, admin_headers)
+
+    student_headers = _auth_headers(client, "student1", "studentpass123")
+    session = client.post(
+        f"/api/student/exams/{exam['id']}/start", headers=student_headers
+    ).json()
+
+    response = client.post(
+        "/api/monitoring/events",
+        json=_valid_event_payload(session["id"], severity="high"),
+        headers=student_headers,
+    )
+
+    assert response.status_code == 422
+    assert "Expected severity" in response.json()["detail"]
+
+
+def test_event_rejected_when_rule_is_disabled(
+    client, admin_user, student_user, student_profile, db_session
+):
+    admin_headers = _auth_headers(client, "admin1", "adminpass123")
+    exam = _create_active_exam(client, admin_headers)
+
+    student_headers = _auth_headers(client, "student1", "studentpass123")
+    session = client.post(
+        f"/api/student/exams/{exam['id']}/start", headers=student_headers
+    ).json()
+
+    rule = db_session.query(MonitoringRule).filter(
+        MonitoringRule.event_type == "HEAD_LEFT"
+    ).first()
+    rule.is_active = False
+    db_session.commit()
+
+    response = client.post(
+        "/api/monitoring/events",
+        json=_valid_event_payload(session["id"]),
+        headers=student_headers,
+    )
+
+    assert response.status_code == 422
+    assert "currently disabled" in response.json()["detail"]
+
+
+def test_event_accepted_at_exact_rule_thresholds(
+    client, admin_user, student_user, student_profile
+):
+    admin_headers = _auth_headers(client, "admin1", "adminpass123")
+    exam = _create_active_exam(client, admin_headers)
+
+    student_headers = _auth_headers(client, "student1", "studentpass123")
+    session = client.post(
+        f"/api/student/exams/{exam['id']}/start", headers=student_headers
+    ).json()
+
+    response = client.post(
+        "/api/monitoring/events",
+        json=_valid_event_payload(
+            session["id"],
+            confidence=0.75,
+            duration_seconds=3.0,
+            occurrences=3,
+        ),
+        headers=student_headers,
+    )
+
+    assert response.status_code == 201

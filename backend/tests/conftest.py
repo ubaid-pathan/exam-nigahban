@@ -7,6 +7,7 @@ from sqlalchemy.pool import StaticPool
 from app.core.config import settings
 from app.core.security import hash_password
 from app.db.base import Base
+from app.db.seed_monitoring_rules import seed_monitoring_rules
 from app.db.session import get_db
 from app.main import app
 from app.db.models import Student, User
@@ -33,6 +34,11 @@ app.dependency_overrides[get_db] = override_get_db
 @pytest.fixture(autouse=True)
 def _reset_database():
     Base.metadata.create_all(bind=engine)
+    db = TestingSessionLocal()
+    try:
+        seed_monitoring_rules(db)
+    finally:
+        db.close()
     yield
     Base.metadata.drop_all(bind=engine)
 
