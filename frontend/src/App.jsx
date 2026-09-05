@@ -21,7 +21,6 @@ import InstructionsPage from './pages/student/InstructionsPage'
 import ReadinessPage from './pages/student/ReadinessPage'
 import TakeExamPage from './pages/student/TakeExamPage'
 import ResultPage from './pages/student/ResultPage'
-import PhoneDetectionSpikePage from './spike/PhoneDetectionSpikePage'
 
 export default function App() {
   return (
@@ -60,11 +59,6 @@ export default function App() {
           </Route>
         </Route>
       </Route>
-
-      {/* Milestone 2 developer-only AI spike -- unlinked from any nav, not
-          gated behind auth, isolated from the production exam/monitoring
-          routes above. Remove before this feature reaches production. */}
-      <Route path="/dev/phone-detection-spike" element={<PhoneDetectionSpikePage />} />
 
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="*" element={<NotFoundPage />} />
