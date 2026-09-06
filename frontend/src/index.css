@@ -1213,3 +1213,47 @@ body {
     margin: 16mm;
   }
 }
+
+/* The scope of a filtered report, stated on the document. Once the filter
+   controls are hidden for print, this line is the only record of which
+   cohort the page actually covers. */
+.report__scope {
+  font-size: 0.85rem;
+  color: var(--app-text-secondary);
+  margin: 0.5rem 0 0.75rem;
+}
+
+/* The label column has to hold phrases like "Attempts with flagged
+   activity" without wrapping to two lines against a one-digit value. */
+.report__grid {
+  grid-template-columns: minmax(12rem, 16rem) 1fr;
+}
+
+@media print {
+  /* .table-responsive scrolls horizontally on screen, which on paper just
+     clips whatever does not fit. A printed table must show every column. */
+  .table-responsive {
+    overflow: visible !important;
+  }
+
+  .report__table {
+    width: 100% !important;
+    table-layout: fixed;
+    word-break: break-word;
+  }
+
+  /* Repeat the header row when a long roster spans several sheets --
+     otherwise every page after the first is unlabelled columns. */
+  .report__table thead {
+    display: table-header-group;
+  }
+
+  .report__table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .report__scope {
+    color: #000 !important;
+  }
+}

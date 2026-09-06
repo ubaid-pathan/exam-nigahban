@@ -14,6 +14,22 @@ const EMPTY_FILTERS = { department: '', className: '', examId: '', sessionStatus
 
 const SESSION_STATUSES = ['in_progress', 'submitted', 'expired', 'cancelled']
 
+// Renders the applied filters as prose for the printed document. An
+// unfiltered report says so explicitly rather than showing nothing, so a
+// reader can tell the difference between "all candidates" and "the scope
+// line failed to render".
+function describeScope(filters, exams) {
+  const parts = []
+  parts.push(filters.department ? `Program ${filters.department}` : 'All programs')
+  parts.push(filters.className ? `Section ${filters.className}` : 'all sections')
+  const exam = exams.find((item) => String(item.id) === String(filters.examId))
+  parts.push(exam ? `exam "${exam.title}"` : 'all exams')
+  if (filters.sessionStatus) {
+    parts.push(`${sessionStatusLabel(filters.sessionStatus).toLowerCase()} attempts only`)
+  }
+  return `${parts.join(', ')}.`
+}
+
 // Monitoring outcomes across a cohort -- a program, a section, an exam --
 // rather than one candidate's case. Every attempt is listed, including the
 // ones that produced nothing: "monitored, nothing found" is the result for
@@ -97,8 +113,9 @@ export default function RosterReportPage() {
 
   return (
     <div>
-      <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
-        <h1 className="h4 mb-0">Roster Report</h1>
+      {/* d-print-none: without it these controls were printed as part of
+          the document. The report's own title below is the page heading. */}
+      <div className="report__toolbar d-print-none d-flex flex-wrap justify-content-end align-items-center gap-2 mb-4">
         <div className="d-flex gap-2">
           {/* Fetched as a blob through the authenticated client, not a
               plain <a href>: the endpoint needs the same bearer auth as
@@ -226,9 +243,15 @@ export default function RosterReportPage() {
       {!loading && !error && report && (
         <>
           <div className="report__header mb-4">
-            <h2 className="report__title">Cohort Monitoring Roster</h2>
+            <h1 className="report__title">Cohort Monitoring Roster</h1>
             <p className="report__provenance">
               Generated {formatDateTimePKT(report.generated_at)} by {report.generated_by}
+            </p>
+            {/* A printed cohort report is unusable if it does not say which
+                cohort it covers: once the filter controls are off the page,
+                this line is the only record of its scope. */}
+            <p className="report__scope">
+              <strong>Scope:</strong> {describeScope(applied, exams)}
             </p>
             <p className="report__notice">
               This report records examination activities flagged by automated monitoring

@@ -110,16 +110,16 @@ export default function SessionReportPage() {
 
   return (
     <div className="report">
-      {/* Screen-only controls; the print stylesheet hides them. */}
-      <div className="report__toolbar d-print-none d-flex justify-content-between align-items-center gap-2 mb-4">
-        <h1 className="h4 mb-0">Examination Case Report</h1>
+      {/* Controls only. The document's own title below is the page
+          heading -- repeating it here printed the same line twice. */}
+      <div className="report__toolbar d-print-none d-flex justify-content-end gap-2 mb-4">
         <button type="button" className="btn btn-primary" onClick={() => window.print()}>
           Print / Save as PDF
         </button>
       </div>
 
       <header className="report__header">
-        <h2 className="report__title">Examination Case Report</h2>
+        <h1 className="report__title">Examination Case Report</h1>
         <p className="report__provenance">
           Generated {formatDateTimePKT(report.generated_at)} by {report.generated_by}
         </p>
@@ -134,7 +134,7 @@ export default function SessionReportPage() {
       </header>
 
       <section className="report__section">
-        <h3 className="report__heading">Candidate</h3>
+        <h2 className="report__heading">Candidate</h2>
         <dl className="report__grid">
           <dt>Name</dt>
           <dd>{student.full_name}</dd>
@@ -148,7 +148,7 @@ export default function SessionReportPage() {
       </section>
 
       <section className="report__section">
-        <h3 className="report__heading">Examination</h3>
+        <h2 className="report__heading">Examination</h2>
         <dl className="report__grid">
           <dt>Exam</dt>
           <dd>{exam.title}</dd>
@@ -180,7 +180,7 @@ export default function SessionReportPage() {
       </section>
 
       <section className="report__section">
-        <h3 className="report__heading">Summary</h3>
+        <h2 className="report__heading">Summary</h2>
         <dl className="report__grid">
           <dt>Activities flagged</dt>
           <dd>{report.total_events}</dd>
@@ -196,7 +196,7 @@ export default function SessionReportPage() {
       </section>
 
       <section className="report__section">
-        <h3 className="report__heading">Flagged activity</h3>
+        <h2 className="report__heading">Flagged activity</h2>
         {report.events.length === 0 ? (
           <p className="report__empty">
             No examination activity was flagged during this session.
@@ -250,7 +250,7 @@ export default function SessionReportPage() {
 
       {confirmedWithEvidence.length > 0 && (
         <section className="report__section">
-          <h3 className="report__heading">Evidence for confirmed activity</h3>
+          <h2 className="report__heading">Evidence for confirmed activity</h2>
           <p className="report__note">
             Images are shown only for activities an administrator confirmed. Activities
             that were dismissed or are still awaiting review appear in the table above
@@ -291,7 +291,7 @@ export default function SessionReportPage() {
       )}
 
       <section className="report__section">
-        <h3 className="report__heading">Administrator decisions</h3>
+        <h2 className="report__heading">Administrator decisions</h2>
         {report.events.every((event) => event.decisions.length === 0) ? (
           <p className="report__empty">No review decisions have been recorded.</p>
         ) : (
@@ -325,7 +325,7 @@ export default function SessionReportPage() {
       </section>
 
       <section className="report__section">
-        <h3 className="report__heading">Enforcement actions</h3>
+        <h2 className="report__heading">Enforcement actions</h2>
         {report.enforcement_actions.length === 0 ? (
           <p className="report__empty">
             No enforcement action was taken against this candidate for this session.
