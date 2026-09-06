@@ -75,7 +75,12 @@ DEFAULT_MONITORING_RULES = [
         "event_type": "MOBILE_PHONE",
         "min_duration_seconds": 1.0,
         "required_occurrences": 1,
-        "confidence_threshold": 0.8,
+        # Must match MOBILE_PHONE_RULE in frontend/src/monitoring/constants.js:
+        # the browser emits an event only above its own bar, and this row is
+        # what the API re-validates it against. A higher value here would
+        # reject every emitted event with a 422 and disable the feature
+        # silently.
+        "confidence_threshold": 0.4,
         "severity": "high",
         "description": "Mobile phone detected in frame by YOLOX pipeline.",
     },

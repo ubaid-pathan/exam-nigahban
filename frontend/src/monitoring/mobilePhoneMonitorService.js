@@ -72,7 +72,7 @@ export function reduceDetections(detections) {
 
 /**
  * Captures the current video frame and runs it through the shared YOLOX
- * Worker client, using the same 0.80 confidence threshold already
+ * Worker client, using the same confidence threshold already
  * validated for this model (DEFAULT_CONFIDENCE_THRESHOLD).
  *
  * ImageBitmap cleanup is deliberately NOT done here: ownership of the

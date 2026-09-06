@@ -32,9 +32,24 @@ export const TOTAL_ANCHORS = STRIDES.reduce((sum, s) => sum + (INPUT_SIZE / s) *
 export const CELL_PHONE_CLASS_ID = 67
 export const CELL_PHONE_LABEL = 'Cell Phone'
 
-// MVP default from CLAUDE.md/PROJECT_SPEC.md's baseline monitoring-rule
-// table (MOBILE_PHONE: confidence >= 0.80) -- reused here, not reinvented.
-export const DEFAULT_CONFIDENCE_THRESHOLD = 0.8
+// Per-frame detection gate: a box scoring below this never becomes a
+// detection at all.
+//
+// Lowered from the original 0.80 so a phone that is only PARTIALLY visible
+// is still caught. Confidence here is objectness x classScore, so a phone
+// half out of frame loses ground on both factors at once and realistically
+// scores 0.25-0.55 -- far under 0.80, meaning it was not detected weakly,
+// it was invisible. A fully visible phone measured 0.92 in the Milestone 1
+// validation, so this does not weaken the clear-cut case.
+//
+// The recall/precision trade is deliberate and specific to this system:
+// every detection is reviewed by a human against a captured evidence
+// image, so a false positive costs an administrator a few seconds, while a
+// miss is silent and unrecoverable. Noise is filtered by the one-second
+// persistence rule (see MOBILE_PHONE_RULE) rather than by a high
+// confidence bar -- a stray hit on a wallet does not survive five
+// consecutive frames, a real phone does.
+export const DEFAULT_CONFIDENCE_THRESHOLD = 0.4
 export const DEFAULT_IOU_THRESHOLD = 0.45
 
 // Padding value YOLOX's own preprocessing (yolox/data/data_augment.py::preproc)

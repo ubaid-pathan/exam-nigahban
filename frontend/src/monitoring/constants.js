@@ -55,11 +55,16 @@ export const MONITORING_EVENT_TYPES = Object.freeze(Object.keys(MONITORING_RULES
 // rule, so its state never shares a Map (or anything else) with the face
 // engine's. Baseline values are this file's own MOBILE_PHONE row from
 // CLAUDE.md/PROJECT_SPEC.md's temporal-rule table (~1s persistence, 1
-// occurrence, confidence >=0.80, High severity) -- not reinvented here.
+// occurrence, High severity). The confidence bar was lowered from the
+// original 0.80: the temporal engine compares this against the MINIMUM
+// confidence observed across the whole episode (see temporalRuleEngine.js
+// minConfidenceSeen), so at 0.80 a single dipped frame -- motion blur, a
+// hand passing over the phone -- discarded an otherwise solid one-second
+// sighting. Persistence, not the confidence bar, is what filters noise.
 export const MOBILE_PHONE_RULE = {
   minDurationSec: 1,
   requiredOccurrences: 1,
-  confidenceThreshold: 0.8,
+  confidenceThreshold: 0.4,
   severity: 'high',
 }
 

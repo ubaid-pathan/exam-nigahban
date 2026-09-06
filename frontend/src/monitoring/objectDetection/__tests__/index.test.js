@@ -17,6 +17,7 @@
 // browser Worker or jsdom.
 
 import { describe, expect, it, vi } from 'vitest'
+import * as constants from '../constants'
 import {
   CELL_PHONE_CLASS_ID,
   CELL_PHONE_LABEL,
@@ -66,11 +67,23 @@ describe('createProductionYoloxWorkerClient - public API surface', () => {
     )
   })
 
+  // Asserts the re-export matches its SOURCE, not a hard-coded number.
+  // The confidence threshold is a tuning value -- it was lowered from 0.80
+  // to catch partially visible phones -- so pinning the literal here made
+  // this a change-detector that failed on every legitimate recalibration
+  // while proving nothing about the re-export itself.
   it('re-exports the same detection constants the Worker protocol uses', () => {
+    expect(CELL_PHONE_CLASS_ID).toBe(constants.CELL_PHONE_CLASS_ID)
+    expect(CELL_PHONE_LABEL).toBe(constants.CELL_PHONE_LABEL)
+    expect(DEFAULT_CONFIDENCE_THRESHOLD).toBe(constants.DEFAULT_CONFIDENCE_THRESHOLD)
+    expect(DEFAULT_IOU_THRESHOLD).toBe(constants.DEFAULT_IOU_THRESHOLD)
+  })
+
+  // The class id IS a fixed fact, not a tuning value: 67 is cell phone in
+  // COCO's 80-class ordering, verified against the exported model in
+  // Milestone 1. Changing it would silently detect a different object.
+  it('pins the COCO cell-phone class id', () => {
     expect(CELL_PHONE_CLASS_ID).toBe(67)
-    expect(CELL_PHONE_LABEL).toBe('Cell Phone')
-    expect(DEFAULT_CONFIDENCE_THRESHOLD).toBe(0.8)
-    expect(DEFAULT_IOU_THRESHOLD).toBe(0.45)
   })
 })
 
