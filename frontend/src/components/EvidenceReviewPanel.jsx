@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react'
 import { fetchEvidenceImageBlob, reviewEvidence } from '../api/evidence'
-import { createEnforcementAction } from '../api/enforcement'
+import { createEnforcementAction, listEnforcementActions } from '../api/enforcement'
+import {
+  actionTypeBadgeClass,
+  actionTypeLabel,
+  enforcementStatusBadgeClass,
+  enforcementStatusLabel,
+} from '../utils/enforcementStatus'
 import { getErrorMessage } from '../utils/apiError'
 import {
   eventStatusBadgeClass,
@@ -22,7 +28,17 @@ import ConfirmModal from './ConfirmModal'
 // For a CONFIRMED event it additionally offers the enforcement ladder
 // (pause / cancel / UFM case) -- punishment is only reachable after a
 // human has confirmed the evidence, never straight from an alert.
-export default function EvidenceReviewPanel({ event, onClose, onReviewed }) {
+//
+// Confirming happens IN PLACE: the panel stays open and reveals the
+// enforcement section, rather than closing and forcing the admin to find
+// and reopen the same event just to act on it. The human-gating rule is
+// unchanged by this -- enforcement still appears only once the server has
+// actually recorded a CONFIRMED decision, never on the strength of a
+// client-side guess.
+//
+// `onReviewed` means "finished with this event -- close and refetch";
+// `onRefresh` means "the list is stale, refetch it but leave me open".
+export default function EvidenceReviewPanel({ event, onClose, onReviewed, onRefresh }) {
   const [imageUrl, setImageUrl] = useState(null)
   const [imageLoading, setImageLoading] = useState(true)
   const [imageError, setImageError] = useState('')
@@ -38,6 +54,24 @@ export default function EvidenceReviewPanel({ event, onClose, onReviewed }) {
   const [pendingAction, setPendingAction] = useState(null)
   const [enforcing, setEnforcing] = useState(false)
   const [enforcementError, setEnforcementError] = useState('')
+
+  // The status the SERVER returned for a decision recorded in this panel,
+  // or null before any. Held locally because `event` is a row from the
+  // parent's list fetch and keeps its original status until that list
+  // reloads -- this is what lets the panel reflect the new decision (and
+  // reveal enforcement) without closing. Never set optimistically: only
+  // ever assigned from a successful review response.
+  const [reviewedStatus, setReviewedStatus] = useState(null)
+  const [reviewedReason, setReviewedReason] = useState('')
+
+  // Enforcement already recorded against this student's session, so an
+  // admin can see that the exam is (for example) already paused before
+  // stacking a second action on top of it.
+  const [priorActions, setPriorActions] = useState([])
+  const [priorActionsError, setPriorActionsError] = useState('')
+
+  const effectiveStatus = reviewedStatus ?? event.status
+  const isConfirmed = effectiveStatus === 'CONFIRMED'
 
   useEffect(() => {
     let cancelled = false
@@ -70,14 +104,59 @@ export default function EvidenceReviewPanel({ event, onClose, onReviewed }) {
     }
   }, [event.evidence_id])
 
+  // Read-only context load. A failure here must never block reviewing or
+  // enforcing -- it only hides the history strip and says so.
+  const loadPriorActions = async (signal) => {
+    try {
+      const data = await listEnforcementActions({
+        sessionId: event.session_id,
+        page: 1,
+        pageSize: 10,
+      })
+      if (!signal.cancelled) {
+        setPriorActions(data?.items ?? [])
+        setPriorActionsError('')
+      }
+    } catch (err) {
+      if (!signal.cancelled) {
+        setPriorActions([])
+        setPriorActionsError(
+          getErrorMessage(err, 'Unable to load previous enforcement actions for this session.'),
+        )
+      }
+    }
+  }
+
+  useEffect(() => {
+    const signal = { cancelled: false }
+    loadPriorActions(signal)
+    return () => {
+      signal.cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [event.session_id])
+
   const handleReview = async (action) => {
     setSubmitting(true)
     setSubmitError('')
     try {
       const result = await reviewEvidence(event.evidence_id, action, reason.trim() || undefined)
-      // The parent refetches the event list after this, so the table
-      // reflects the server's actual resulting status rather than a
-      // client-guessed one.
+
+      if (action === 'CONFIRMED') {
+        // Stay open on the server's actual resulting status so the
+        // enforcement ladder becomes reachable for the violation the admin
+        // is already looking at, instead of making them reopen it. The
+        // list behind the panel is refreshed regardless, so it never shows
+        // a stale PENDING_REVIEW row.
+        setReviewedStatus(result?.status ?? 'CONFIRMED')
+        setReviewedReason(reason.trim())
+        setSubmitting(false)
+        onRefresh?.()
+        return
+      }
+
+      // IGNORED needs no follow-up action, so the review ends here: the
+      // parent closes this panel and refetches, exactly as before.
       onReviewed(result)
     } catch (err) {
       setSubmitError(getErrorMessage(err, 'Unable to record this review. Please try again.'))
@@ -187,9 +266,12 @@ export default function EvidenceReviewPanel({ event, onClose, onReviewed }) {
                   </dd>
                   <dt className="col-5">Status</dt>
                   <dd className="col-7">
-                    <span className={`badge ${eventStatusBadgeClass(event.status)}`}>
-                      {eventStatusLabel(event.status)}
+                    <span className={`badge ${eventStatusBadgeClass(effectiveStatus)}`}>
+                      {eventStatusLabel(effectiveStatus)}
                     </span>
+                    {reviewedStatus && (
+                      <span className="text-muted small ms-2">recorded just now</span>
+                    )}
                   </dd>
                   <dt className="col-5">Confidence</dt>
                   <dd className="col-7">{(event.confidence * 100).toFixed(1)}%</dd>
@@ -201,23 +283,70 @@ export default function EvidenceReviewPanel({ event, onClose, onReviewed }) {
               </div>
             </div>
 
-            <div className="mt-3">
-              <label htmlFor="review-reason" className="form-label small">
-                Reason (optional)
-              </label>
-              <textarea
-                id="review-reason"
-                className="form-control form-control-sm"
-                rows={2}
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                disabled={submitting}
-              />
-            </div>
+            {/* Once a decision is recorded the review reason becomes a
+                read-only summary. Leaving it editable alongside the
+                enforcement section's own required reason would put two
+                near-identical boxes on screen with only one of them still
+                doing anything. */}
+            {reviewedStatus ? (
+              <div className="mt-3 small">
+                <span className="text-muted">Review reason: </span>
+                {reviewedReason ? (
+                  <span>{reviewedReason}</span>
+                ) : (
+                  <span className="text-muted fst-italic">none given</span>
+                )}
+              </div>
+            ) : (
+              <div className="mt-3">
+                <label htmlFor="review-reason" className="form-label small">
+                  Reason (optional)
+                </label>
+                <textarea
+                  id="review-reason"
+                  className="form-control form-control-sm"
+                  rows={2}
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  disabled={submitting}
+                />
+              </div>
+            )}
 
             {submitError && <p className="text-danger small mt-2 mb-0">{submitError}</p>}
 
-            {event.status === 'CONFIRMED' && (
+            {/* Enforcement already on this session -- shown whatever the
+                review status is, so an admin about to confirm can see the
+                student is (say) already paused. Read-only. */}
+            {priorActions.length > 0 && (
+              <div className="mt-4 pt-3 border-top">
+                <h3 className="h6 mb-2">Enforcement on this session</h3>
+                <ul className="list-unstyled mb-0 d-flex flex-column gap-2">
+                  {priorActions.map((action) => (
+                    <li key={action.id} className="d-flex flex-wrap align-items-center gap-2 small">
+                      <span className={`badge ${actionTypeBadgeClass(action.action_type)}`}>
+                        {actionTypeLabel(action.action_type)}
+                      </span>
+                      <span className={`badge ${enforcementStatusBadgeClass(action.effective_status)}`}>
+                        {enforcementStatusLabel(action.effective_status)}
+                      </span>
+                      <span className="text-muted">
+                        by {action.admin_username} · {formatDateTimePKT(action.created_at)}
+                      </span>
+                      <span className="text-truncate" style={{ maxWidth: '100%' }}>
+                        {action.reason}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {priorActionsError && (
+              <p className="text-muted small mt-3 mb-0">{priorActionsError}</p>
+            )}
+
+            {isConfirmed && (
               <div className="mt-4 pt-3 border-top">
                 <h2 className="h6 mb-1">Enforcement</h2>
                 <p className="text-muted small mb-2">
@@ -287,22 +416,38 @@ export default function EvidenceReviewPanel({ event, onClose, onReviewed }) {
             )}
           </div>
           <div className="modal-footer">
+            {/* After a decision is recorded in this panel, "Confirm" would
+                only append a duplicate audit row saying the same thing, so
+                it is replaced by Done. Mark Ignored stays available: it is
+                a genuine reversal, and the backend records it as another
+                audit entry rather than editing the first. */}
             <button
               type="button"
               className="btn btn-outline-dark"
               onClick={() => handleReview('IGNORED')}
               disabled={submitting || enforcing}
             >
-              Mark Ignored
+              {reviewedStatus ? 'Change to Ignored' : 'Mark Ignored'}
             </button>
-            <button
-              type="button"
-              className="btn btn-success"
-              onClick={() => handleReview('CONFIRMED')}
-              disabled={submitting || enforcing}
-            >
-              Confirm
-            </button>
+            {isConfirmed ? (
+              <button
+                type="button"
+                className="btn btn-success"
+                onClick={() => onReviewed(null)}
+                disabled={submitting || enforcing}
+              >
+                Done
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-success"
+                onClick={() => handleReview('CONFIRMED')}
+                disabled={submitting || enforcing}
+              >
+                Confirm
+              </button>
+            )}
           </div>
         </div>
       </div>
