@@ -8,9 +8,10 @@ deployment, so this column has to be added explicitly or every query
 selecting it fails -- including login, since SQLAlchemy names each mapped
 column in its SELECT.
 
-Idempotent and dialect-agnostic (SQLite, MySQL, PostgreSQL): the live
-schema is inspected first, so re-running against an already-migrated
-database is a no-op. Safe to leave wired into build.sh permanently.
+Idempotent and portable across SQLite, MySQL and PostgreSQL: the live
+schema is inspected first, so re-running is a no-op, and the column type
+and boolean default are taken from the dialect rather than hard-coded (see
+app/db/migration_utils.py -- PostgreSQL rejects `DEFAULT 0` for a boolean).
 
 Existing rows default to false. That is deliberate -- the migration grants
 nobody protection. The system admin is designated only by
@@ -23,16 +24,13 @@ Usage:
 
 from __future__ import annotations
 
-from sqlalchemy import inspect, text
+from sqlalchemy import inspect
 
+from app.db.migration_utils import add_column, boolean_false_literal, column_exists
 from app.db.session import engine
 
 TABLE = "users"
 COLUMN = "is_system_admin"
-
-
-def column_exists() -> bool:
-    return COLUMN in {col["name"] for col in inspect(engine).get_columns(TABLE)}
 
 
 def main() -> int:
@@ -42,21 +40,22 @@ def main() -> int:
         print(f"Table '{TABLE}' does not exist yet -- nothing to migrate.")
         return 0
 
-    if column_exists():
+    if column_exists(engine, TABLE, COLUMN):
         print(f"{TABLE}.{COLUMN} already present -- nothing to do.")
         return 0
 
-    # BOOLEAN with a 0 default is accepted by SQLite, MySQL and PostgreSQL
-    # alike; NOT NULL plus the default backfills every existing row in one
-    # statement without a separate UPDATE pass.
-    statement = text(
-        f"ALTER TABLE {TABLE} ADD COLUMN {COLUMN} BOOLEAN NOT NULL DEFAULT 0"
+    # NOT NULL plus a default backfills every existing row in one statement,
+    # with no separate UPDATE pass.
+    add_column(
+        engine,
+        TABLE,
+        COLUMN,
+        suffix=f"NOT NULL DEFAULT {boolean_false_literal(engine)}",
     )
 
-    with engine.begin() as connection:
-        connection.execute(statement)
-
-    if not column_exists():
+    # Re-inspect rather than trusting the statement: a silently ignored
+    # ALTER would otherwise look like success.
+    if not column_exists(engine, TABLE, COLUMN):
         print(f"FAILED: {TABLE}.{COLUMN} still absent after the migration.")
         return 1
 
