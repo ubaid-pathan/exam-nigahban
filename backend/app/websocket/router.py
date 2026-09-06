@@ -1,8 +1,16 @@
-"""WebSocket route for real-time administrator alerts.
+"""WebSocket routes for real-time alerts.
 
-Phase 7F-1: infrastructure only. This endpoint authenticates, tracks, and
-keeps admin connections alive -- it does not yet broadcast any real
-monitoring/evidence events (see app/websocket/manager.py).
+Two channels, deliberately separate:
+
+* /ws/admin/alerts -- broadcasts monitoring events and enforcement actions
+  to every connected administrator.
+* /ws/student/sessions/{session_id} -- nudges ONE candidate that their own
+  exam session changed, so an invigilator's pause or cancellation reaches
+  them immediately. Carries no enforcement state; the client re-reads the
+  session from the API (see app/websocket/session_manager.py).
+
+Both authenticate from a token query parameter, since a browser cannot set
+an Authorization header on a WebSocket handshake.
 """
 
 from __future__ import annotations

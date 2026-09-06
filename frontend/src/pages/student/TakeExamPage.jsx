@@ -106,13 +106,13 @@ export default function TakeExamPage() {
   const monitoringActive = Boolean(sessionId) && !locked && cameraStatus === 'granted'
   const { status: monitoringStatus, observationStatus, errorMessage: monitoringError } =
     useFaceMonitoring(videoRef, monitoringActive, handleMonitoringEvent)
-  // Milestone 6 Phase 2 Step 3: mobile-phone (YOLOX) detection, wired
-  // alongside face monitoring -- same videoRef, same monitoringActive
-  // gate, same event sink, but its own independent rAF loop and temporal
-  // rule engine instance (see useMobilePhoneMonitoring.js). No UI consumes
-  // its returned status yet, per this milestone's frontend-only,
-  // no-new-UI scope; MOBILE_PHONE events are still expected to be
-  // rejected (422) by the backend until a later milestone adds support.
+  // Mobile-phone (YOLOX) detection, wired alongside face monitoring --
+  // same videoRef, same monitoringActive gate, same event sink, but its
+  // own independent rAF loop and temporal rule engine instance (see
+  // useMobilePhoneMonitoring.js). MOBILE_PHONE events are accepted and
+  // persisted by the backend: the rule is seeded in
+  // app/db/seed_monitoring_rules.py and the type is validated like any
+  // other. This hook's returned status is not surfaced in the UI yet.
   useMobilePhoneMonitoring(videoRef, monitoringActive, handleMonitoringEvent)
 
   const lockSession = useCallback(

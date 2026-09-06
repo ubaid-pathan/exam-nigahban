@@ -1,10 +1,16 @@
 """Connection manager for the real-time admin alerts WebSocket channel.
 
-Phase 7F-1 establishes the infrastructure only: this manager tracks
-connected admin sockets and can broadcast a JSON-compatible message to all
-of them, but nothing in the application calls broadcast() yet. Wiring
-monitoring-event creation / evidence review to actually call it is a later
-phase.
+Tracks connected admin sockets and broadcasts a JSON-compatible message to
+all of them. Two callers exist: monitoring-event creation
+(app/api/routes/monitoring.py::_broadcast_monitoring_event) and enforcement
+actions (app/api/routes/enforcement.py::_broadcast_enforcement_action).
+Both broadcast after their row is committed and swallow any failure, so a
+disconnected admin can never affect the HTTP response.
+
+For notifications aimed at ONE student's exam session rather than every
+admin, see app/websocket/session_manager.py -- a separate manager, because
+"deliver to one session" and "broadcast to everyone" are different enough
+that sharing one implementation would complicate both.
 """
 
 from __future__ import annotations
@@ -18,10 +24,13 @@ logger = logging.getLogger(__name__)
 
 
 class MonitoringAlertMessage(TypedDict):
-    """The JSON message contract a future phase will pass to
-    ConnectionManager.broadcast() when a monitoring event or evidence
-    review changes. Defined now so later phases have one agreed shape to
-    build against; nothing constructs or sends this yet.
+    """The JSON message shape broadcast when a monitoring event is created.
+
+    Documents the contract admin clients parse (see
+    frontend/src/api/adminAlertsSocket.js, which allow-lists this type
+    alongside "enforcement_action"). The route builds the dict inline
+    rather than instantiating this, so treat it as the reference for the
+    shape rather than as the constructor for it.
 
     Example:
         {
