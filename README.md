@@ -12,41 +12,60 @@ The system monitors predefined examination conditions such as prolonged head mov
 
 # Project Status
 
-**Current Phase:** Foundation & Core Development
-
-**Project Status:** In Development
+**Current Phase:** Feature complete for the MVP scope; in polish and demo preparation
 
 **Target:** Hackathon MVP
 
 **Primary Development Agent:** Claude Code
 
-The project currently has a working backend and database foundation, including:
+| | |
+|---|---|
+| Backend tests | 345 passing |
+| Frontend tests | 252 passing |
+| HTTP endpoints | 44, plus 2 WebSocket channels |
+| Database tables | 11 |
 
-- FastAPI application
-- MySQL database
-- SQLAlchemy configuration
-- Environment configuration
-- User model
-- Student model
-- Exam model
-- Question model
-- Examination session model
-- Student answer model
-- Database tables
-- Health endpoint
-- Swagger/OpenAPI documentation
+## Delivered
 
-Major modules currently being developed include:
+**Authentication and accounts** — bcrypt password hashing, JWT sessions,
+role-based authorization, and administrator-created accounts only. Students
+cannot self-register. Deactivating an account revokes access on the next
+request.
 
-- Authentication
-- Examination management
-- Student examination workflow
-- AI monitoring
-- Evidence generation
-- Real-time administrator monitoring
-- Evidence review
-- Audit logging
-- Final UI/UX
+**Examination management** — exam and question CRUD, publication status,
+student examination workflow, timed sessions with server-side expiry, answer
+persistence, submission and scoring.
+
+**AI-assisted monitoring** — MediaPipe Face Landmarker for face presence,
+face count and head pose; YOLOX-Nano running in a Web Worker for
+mobile-phone detection. All inference runs locally in the student's browser;
+no webcam video is ever transmitted.
+
+**Temporal rule engine** — duration, occurrence and confidence thresholds
+applied in the browser, then **re-validated server-side** against the
+`monitoring_rules` table. An event that does not satisfy its configured rule
+is rejected, so the API cannot be used to inject fabricated events.
+
+**Evidence** — a single downsized still frame captured only when a rule is
+satisfied, never on a timer. Storage is abstracted behind one module with
+local-filesystem and S3-compatible backends (Cloudflare R2, AWS S3, MinIO).
+Evidence capture is strictly best-effort: it can never cause the monitoring
+event itself to be lost.
+
+**Real-time administration** — authenticated WebSocket alerts to the admin
+dashboard, a notification queue in the header showing the live review
+backlog, monitoring events grouped into one combined record per student
+session, and an evidence review workflow.
+
+**Enforcement** — a proportionate ladder of administrator actions (timed
+block, exam cancellation, formal Unfair Means case), reachable only after a
+human has confirmed the evidence. Blocks are enforced server-side on every
+student write path, and reach the candidate in real time over a dedicated
+session channel.
+
+**Audit** — every administrator decision is recorded as an append-only row
+attributable to a named administrator at a named moment. No decision is ever
+edited or deleted; a reversal is recorded as a new entry.
 
 ---
 
@@ -126,6 +145,38 @@ Administrators can:
 - Confirm or dismiss monitoring events
 - Record administrative actions
 - View audit history
+
+---
+
+# Known Limitations
+
+Stated deliberately. A system that knows where its own boundary sits is
+easier to trust than one that claims to have none.
+
+**Monitoring runs in the student's browser, by design.** This is what keeps
+webcam video off the network and makes the privacy guarantee real, but it
+also means the server only learns what the client reports. The server
+re-validates every incoming event against its configured rule, so fabricated
+or under-threshold events are rejected — but it cannot detect events that
+are never sent. A determined student who disables the monitoring script
+produces no events and currently looks the same as one who behaved.
+
+*Planned mitigation:* a liveness heartbeat. The exam client would report
+periodically that its camera and detectors are running, and the dashboard
+would flag any active session that has gone quiet. This converts silence
+from invisible into visible without moving inference to the server.
+
+**The camera requirement is enforced in the interface, not the API.** The
+pre-exam readiness check gates the Begin Exam button on camera permission,
+but the session-start endpoint does not independently verify it. The same
+heartbeat above is the intended fix.
+
+**Deliberately out of scope for the MVP**, and listed so their absence is
+understood as a decision rather than an oversight: request rate limiting,
+schema migration tooling (Alembic), a CI job exercising the production
+database engine, and short-lived ticket exchange for WebSocket
+authentication. Each is understood and none is required to demonstrate the
+system.
 
 ---
 
