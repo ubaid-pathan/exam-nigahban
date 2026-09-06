@@ -11,6 +11,7 @@ from app.api.routes import (
     monitoring,
     monitoring_rules,
     questions,
+    reports,
     student_exams,
     users,
 )
@@ -41,6 +42,7 @@ app.include_router(evidence.router)
 app.include_router(admin_dashboard.router)
 app.include_router(monitoring_rules.router)
 app.include_router(enforcement.router)
+app.include_router(reports.router)
 app.include_router(audit.router)
 app.include_router(websocket_router.router)
 

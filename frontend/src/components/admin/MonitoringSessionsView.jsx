@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { listMonitoringEvents, listMonitoringSessions } from '../../api/monitoring'
 import { getErrorMessage } from '../../utils/apiError'
 import {
@@ -170,6 +171,13 @@ export default function MonitoringSessionsView({ filters, pageSize }) {
                     >
                       {isOpen ? 'Hide' : `View ${session.total_events}`}
                     </button>
+                    {/* The printable case report for this candidate. */}
+                    <Link
+                      to={`/admin/reports/sessions/${session.session_id}`}
+                      className="btn btn-sm btn-outline-secondary"
+                    >
+                      Report
+                    </Link>
                   </div>
                 </div>
 

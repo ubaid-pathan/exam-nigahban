@@ -986,3 +986,230 @@ body {
 .session-card__identity {
   min-width: 0;
 }
+
+/* ==========================================================================
+   Examination case report
+   --------------------------------------------------------------------------
+   Styled as a document rather than a dashboard, and paginated by the print
+   rules at the end so that Print -> Save as PDF produces the artifact an
+   administrator attaches to a disciplinary file. This is why the project
+   needs no server-side PDF dependency.
+   ========================================================================== */
+
+.report {
+  max-width: 52rem;
+  margin-inline: auto;
+  color: var(--app-text-primary);
+}
+
+.report__header {
+  border-bottom: 2px solid var(--app-text-primary);
+  padding-bottom: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.report__title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0 0 0.25rem;
+}
+
+.report__provenance {
+  font-size: 0.85rem;
+  color: var(--app-text-muted);
+  margin: 0 0 0.75rem;
+}
+
+/* The AI/human boundary, stated on the document itself so it cannot be
+   read apart from the findings it qualifies (CLAUDE.md section 18). */
+.report__notice {
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--app-text-secondary);
+  background-color: var(--app-surface-subtle);
+  border-left: 3px solid var(--app-primary);
+  padding: 0.6rem 0.8rem;
+  margin: 0;
+}
+
+.report__section {
+  margin-bottom: 1.75rem;
+}
+
+.report__heading {
+  font-size: 1rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid var(--app-border-strong);
+  padding-bottom: 0.3rem;
+  margin-bottom: 0.75rem;
+}
+
+.report__grid {
+  display: grid;
+  grid-template-columns: 12rem 1fr;
+  gap: 0.35rem 1rem;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.report__grid dt {
+  font-weight: 600;
+  color: var(--app-text-secondary);
+}
+
+.report__grid dd {
+  margin: 0;
+}
+
+.report__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.report__table th {
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 1px solid var(--app-border-strong);
+  padding: 0.4rem 0.5rem;
+  white-space: nowrap;
+}
+
+.report__table td {
+  border-bottom: 1px solid var(--app-border);
+  padding: 0.4rem 0.5rem;
+  vertical-align: top;
+}
+
+.report__empty,
+.report__note {
+  font-size: 0.85rem;
+  color: var(--app-text-muted);
+  margin: 0 0 0.75rem;
+}
+
+.report__evidence {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 1rem;
+}
+
+.report__figure {
+  margin: 0;
+  border: 1px solid var(--app-border);
+  border-radius: 0.25rem;
+  padding: 0.5rem;
+}
+
+.report__figure img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 0.15rem;
+}
+
+.report__figure-missing {
+  aspect-ratio: 4 / 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--app-surface-subtle);
+  color: var(--app-text-muted);
+  font-size: 0.8rem;
+  border-radius: 0.15rem;
+}
+
+.report__figure figcaption {
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--app-text-secondary);
+  margin-top: 0.4rem;
+}
+
+.report__signature {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2.5rem;
+  margin-top: 3rem;
+}
+
+.report__signature-line {
+  border-bottom: 1px solid var(--app-text-primary);
+  height: 2.5rem;
+}
+
+.report__signature p {
+  font-size: 0.8rem;
+  color: var(--app-text-secondary);
+  margin: 0.3rem 0 0;
+}
+
+/* --------------------------------------------------------------------------
+   Print rules. Everything that is chrome on screen disappears, and the
+   report becomes the page.
+   -------------------------------------------------------------------------- */
+@media print {
+  /* The admin shell -- sidebar, header, notification bell -- is navigation,
+     not part of the document. */
+  .admin-sidebar,
+  .admin-header,
+  .admin-sidebar__overlay,
+  .d-print-none {
+    display: none !important;
+  }
+
+  .admin-shell,
+  .admin-main,
+  .admin-content {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  body {
+    background: #fff !important;
+  }
+
+  .report {
+    max-width: none;
+    font-size: 11pt;
+  }
+
+  /* Keep a section's heading with its content, and never split a piece of
+     evidence away from the caption that identifies it. */
+  .report__section,
+  .report__figure {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .report__heading {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .report__evidence {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Bootstrap's coloured badges print as unreadable grey boxes by default;
+     as outlined text they stay legible in black and white. */
+  .badge {
+    border: 1px solid #000 !important;
+    background: transparent !important;
+    color: #000 !important;
+  }
+
+  .report__notice {
+    border-left: 3px solid #000 !important;
+    background: transparent !important;
+    color: #000 !important;
+  }
+
+  @page {
+    margin: 16mm;
+  }
+}
