@@ -104,3 +104,64 @@ class SessionCaseReport(BaseModel):
 
     events: list[ReportEvent]
     enforcement_actions: list[ReportEnforcement]
+
+
+class RosterRow(BaseModel):
+    """One candidate's attempt at one exam, as a line in a cohort roster.
+
+    Unlike the monitoring review queue, a roster row exists even when a
+    session produced no flagged activity at all -- "this candidate was
+    monitored and nothing was found" is a result the report has to be able
+    to state, and is the majority of any healthy cohort.
+    """
+
+    session_id: int
+    session_status: str
+    started_at: datetime
+    ended_at: datetime | None
+    score: int | None
+
+    student_id: str
+    student_full_name: str
+    department: str | None
+    class_name: str | None
+
+    exam_id: int
+    exam_title: str
+
+    total_events: int
+    high_severity_events: int
+    confirmed_events: int
+    pending_events: int
+    enforcement_actions: int
+
+
+class RosterReport(BaseModel):
+    generated_at: datetime
+    generated_by: str
+
+    items: list[RosterRow]
+    page: int
+    page_size: int
+    total: int
+    total_pages: int
+
+    # Totals across every row matching the filters, not just this page --
+    # a cohort report is read for its aggregate first.
+    total_sessions: int
+    sessions_with_activity: int
+    total_flagged_events: int
+    total_enforcement_actions: int
+
+
+class RosterFilterOptions(BaseModel):
+    """The program and section values that actually exist in the roster.
+
+    Returned so the report's filters offer real values rather than free
+    text. It also makes inconsistent data visible: if a program appears
+    twice under two spellings, that shows up here rather than silently
+    splitting a cohort report into two groups.
+    """
+
+    departments: list[str]
+    class_names: list[str]

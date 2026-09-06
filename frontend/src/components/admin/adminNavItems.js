@@ -1,4 +1,12 @@
-import { AuditIcon, DashboardIcon, ExamsIcon, MonitoringIcon, ShieldAlertIcon, UsersIcon } from './icons'
+import {
+  AuditIcon,
+  DashboardIcon,
+  ExamsIcon,
+  FileIcon,
+  MonitoringIcon,
+  ShieldAlertIcon,
+  UsersIcon,
+} from './icons'
 
 // Single source of truth for the admin sidebar's navigation, reused by
 // AdminSidebar (the link list) and AdminLayout (the header's current-page
@@ -16,6 +24,7 @@ export const ADMIN_NAV_ITEMS = [
   { to: '/admin/enforcement', label: 'Enforcement', Icon: ShieldAlertIcon },
   { to: '/admin/exams', label: 'Exams', Icon: ExamsIcon },
   { to: '/admin/users', label: 'Users', Icon: UsersIcon },
+  { to: '/admin/reports', label: 'Reports', Icon: FileIcon },
   { to: '/admin/audit', label: 'Audit History', Icon: AuditIcon },
 ]
 
