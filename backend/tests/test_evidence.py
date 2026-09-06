@@ -186,17 +186,95 @@ def test_admin_lists_and_filters_evidence(client, admin_user, student_user, stud
 
     list_response = client.get("/api/evidence", headers=admin_headers)
     assert list_response.status_code == 200
-    assert any(e["event_id"] == event["id"] for e in list_response.json())
+    body = list_response.json()
+    assert any(e["event_id"] == event["id"] for e in body["items"])
+    assert body["total"] == 1
+    assert body["page"] == 1
 
     filtered = client.get(
         f"/api/evidence?session_id={session['id']}", headers=admin_headers
     )
     assert filtered.status_code == 200
-    assert len(filtered.json()) == 1
+    assert filtered.json()["total"] == 1
 
     detail = client.get(f"/api/evidence/{event['evidence']['id']}", headers=admin_headers)
     assert detail.status_code == 200
     assert detail.json()["event_id"] == event["id"]
+
+
+def test_evidence_responses_never_carry_the_embedded_image(
+    client, admin_user, student_user, student_profile
+):
+    """The local backend keeps a base64 copy of the JPEG in the row as an
+    ephemeral-filesystem fallback. That copy must stay in the DATABASE and
+    never be serialized into a response -- otherwise a listing of N rows
+    carries N whole images inline."""
+    admin_headers = _auth_headers(client, "admin1", "adminpass123")
+    exam = _create_active_exam(client, admin_headers)
+    student_headers = _auth_headers(client, "student1", "studentpass123")
+    session = _start_session(client, student_headers, exam["id"])
+
+    event = client.post(
+        "/api/monitoring/events",
+        json=_event_payload(session["id"], evidence_image_base64=_FAKE_JPEG_BASE64),
+        headers=student_headers,
+    ).json()
+    evidence_id = event["evidence"]["id"]
+
+    # Not on create, not on detail, not in the listing.
+    assert "image_base64" not in event["evidence"]["metadata"]
+
+    detail = client.get(f"/api/evidence/{evidence_id}", headers=admin_headers).json()
+    assert "image_base64" not in detail["metadata"]
+    # The useful metadata is still there.
+    assert detail["metadata"]["content_type"] == "image/jpeg"
+
+    listing = client.get("/api/evidence", headers=admin_headers).json()
+    for item in listing["items"]:
+        assert "image_base64" not in item["metadata"]
+
+    # ...but the row still holds it, so the image survives a redeploy and
+    # the image endpoint can still serve it.
+    image = client.get(f"/api/evidence/{evidence_id}/image", headers=admin_headers)
+    assert image.status_code == 200
+    assert image.content.startswith(b"\xff\xd8\xff")
+
+
+def test_evidence_listing_is_paginated(
+    client, admin_user, student_user, student_profile
+):
+    admin_headers = _auth_headers(client, "admin1", "adminpass123")
+    exam = _create_active_exam(client, admin_headers)
+    student_headers = _auth_headers(client, "student1", "studentpass123")
+    session = _start_session(client, student_headers, exam["id"])
+
+    for _ in range(3):
+        client.post(
+            "/api/monitoring/events",
+            json=_event_payload(session["id"], evidence_image_base64=_FAKE_JPEG_BASE64),
+            headers=student_headers,
+        )
+
+    first = client.get("/api/evidence?page=1&page_size=2", headers=admin_headers).json()
+    assert first["total"] == 3
+    assert first["total_pages"] == 2
+    assert len(first["items"]) == 2
+
+    second = client.get("/api/evidence?page=2&page_size=2", headers=admin_headers).json()
+    assert len(second["items"]) == 1
+
+    # No row appears on two pages.
+    ids = [i["id"] for i in first["items"]] + [i["id"] for i in second["items"]]
+    assert len(set(ids)) == 3
+
+
+def test_evidence_listing_rejects_an_out_of_range_page_size(
+    client, admin_user, student_user, student_profile
+):
+    admin_headers = _auth_headers(client, "admin1", "adminpass123")
+    assert client.get("/api/evidence?page_size=0", headers=admin_headers).status_code == 422
+    assert client.get("/api/evidence?page_size=500", headers=admin_headers).status_code == 422
+    assert client.get("/api/evidence?page=0", headers=admin_headers).status_code == 422
 
 
 def test_student_cannot_access_evidence_endpoints(

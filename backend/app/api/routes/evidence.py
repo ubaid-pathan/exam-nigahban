@@ -1,6 +1,6 @@
 import base64
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -12,7 +12,7 @@ from app.schemas.admin_action import (
     EvidenceReviewRequest,
     EvidenceReviewResponse,
 )
-from app.schemas.evidence import EvidenceResponse
+from app.schemas.evidence import EvidenceListResponse, EvidenceResponse
 from app.services.evidence_storage import read_evidence_image
 
 router = APIRouter(
@@ -32,12 +32,23 @@ def _get_evidence_or_404(evidence_id: int, db: Session) -> Evidence:
     return evidence
 
 
-@router.get("", response_model=list[EvidenceResponse])
+@router.get("", response_model=EvidenceListResponse)
 def list_evidence(
     event_id: int | None = None,
     session_id: int | None = None,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
     db: Session = Depends(get_db),
-) -> list[Evidence]:
+) -> EvidenceListResponse:
+    """Admin-only paginated evidence listing.
+
+    Previously returned every row unbounded, and each row carried a full
+    base64 copy of its JPEG inline under the local storage backend -- so a
+    few hundred events produced a single response of tens of megabytes.
+    Both halves of that are fixed: the page is bounded here, and
+    EvidenceResponse no longer serializes the fallback image (the stored
+    row still keeps it; GET /api/evidence/{id}/image still uses it).
+    """
     query = db.query(Evidence)
     if event_id is not None:
         query = query.filter(Evidence.event_id == event_id)
@@ -45,7 +56,24 @@ def list_evidence(
         query = query.join(
             MonitoringEvent, MonitoringEvent.id == Evidence.event_id
         ).filter(MonitoringEvent.session_id == session_id)
-    return query.order_by(Evidence.id).all()
+
+    total = query.count()
+    rows = (
+        query.order_by(Evidence.id)
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+
+    total_pages = (total + page_size - 1) // page_size
+
+    return EvidenceListResponse(
+        items=[EvidenceResponse.model_validate(row) for row in rows],
+        page=page,
+        page_size=page_size,
+        total=total,
+        total_pages=total_pages,
+    )
 
 
 @router.get("/{evidence_id}", response_model=EvidenceResponse)
