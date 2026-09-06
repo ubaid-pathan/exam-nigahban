@@ -3,6 +3,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
+from app.schemas.enforcement import ActiveBlockInfo
+
 AnswerOption = Literal["A", "B", "C", "D"]
 
 
@@ -38,6 +40,10 @@ class SessionResponse(BaseModel):
     ended_at: datetime | None
     remaining_seconds: int
     score: int | None
+    # Present only while an invigilator's write-block is in effect; the
+    # student client's periodic session resync reads this to render its
+    # pause overlay without any extra request.
+    active_block: ActiveBlockInfo | None = None
 
 
 class AnswerSaveRequest(BaseModel):

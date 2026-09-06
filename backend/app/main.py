@@ -5,6 +5,7 @@ from app.api.routes import (
     admin_dashboard,
     audit,
     auth,
+    enforcement,
     evidence,
     exams,
     monitoring,
@@ -39,6 +40,7 @@ app.include_router(monitoring.router)
 app.include_router(evidence.router)
 app.include_router(admin_dashboard.router)
 app.include_router(monitoring_rules.router)
+app.include_router(enforcement.router)
 app.include_router(audit.router)
 app.include_router(websocket_router.router)
 

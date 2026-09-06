@@ -63,6 +63,7 @@ export default function ResultPage() {
   if (!session) return null
 
   const isSubmitted = session.status === 'submitted'
+  const isCancelled = session.status === 'cancelled'
 
   return (
     <div className="mx-auto" style={{ maxWidth: '520px' }}>
@@ -78,6 +79,21 @@ export default function ResultPage() {
               </p>
               <p className="small text-muted">
                 Your submission has been recorded and is available for administrator review.
+              </p>
+            </>
+          ) : isCancelled ? (
+            <>
+              <h1 className="h4 mb-3 text-danger">Exam Cancelled</h1>
+              <p className="text-muted mb-1">{examTitle}</p>
+              <p className="display-6 fw-bold mb-1">{session.score ?? 0}%</p>
+              {session.ended_at && (
+                <p className="text-muted small mb-4">
+                  Cancelled at {new Date(session.ended_at).toLocaleString()}
+                </p>
+              )}
+              <p className="small text-muted">
+                This exam was cancelled by the invigilator due to a violation of the examination
+                rules, so your score was voided.
               </p>
             </>
           ) : (

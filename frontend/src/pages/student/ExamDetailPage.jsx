@@ -52,7 +52,11 @@ export default function ExamDetailPage() {
   const goToNextStep = () => {
     if (exam.session_status === 'in_progress') {
       navigate(`/student/exams/${examId}/take`)
-    } else if (exam.session_status === 'submitted' || exam.session_status === 'expired') {
+    } else if (
+      exam.session_status === 'submitted' ||
+      exam.session_status === 'expired' ||
+      exam.session_status === 'cancelled'
+    ) {
       navigate(`/student/exams/${examId}/result`)
     } else {
       navigate(`/student/exams/${examId}/instructions`)
@@ -62,7 +66,9 @@ export default function ExamDetailPage() {
   const actionLabel =
     exam.session_status === 'in_progress'
       ? 'Resume Exam'
-      : exam.session_status === 'submitted' || exam.session_status === 'expired'
+      : exam.session_status === 'submitted' ||
+          exam.session_status === 'expired' ||
+          exam.session_status === 'cancelled'
         ? 'View Result'
         : 'Start Exam'
 

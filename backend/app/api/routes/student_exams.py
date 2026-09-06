@@ -5,8 +5,10 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_student
+from app.api.routes.enforcement import get_active_block
 from app.db.models import Exam, ExamSession, Question, Student, StudentAnswer, User
 from app.db.session import get_db
+from app.schemas.enforcement import ActiveBlockInfo
 from app.schemas.student_exam import (
     AnswerResponse,
     AnswerSaveRequest,
@@ -82,7 +84,40 @@ def _remaining_seconds(session_row: ExamSession, exam: Exam) -> int:
     return max(0, int(remaining))
 
 
-def _to_session_response(session_row: ExamSession, exam: Exam) -> SessionResponse:
+def _active_block_info(session_row: ExamSession, db: Session) -> ActiveBlockInfo | None:
+    """The live write-block on this session, if one is in effect.
+
+    Computed from the enforcement table on every call (never stored on the
+    session), so the student client's periodic session resync picks up a
+    newly created block -- or a lifted/expired one -- without extra endpoints.
+    """
+    block = get_active_block(session_row.id, db)
+    if block is None:
+        return None
+    return ActiveBlockInfo(blocked_until=block.blocked_until, reason=block.reason)
+
+
+def _reject_if_blocked(session_row: ExamSession, db: Session) -> None:
+    """403 when an invigilator's write-block is in effect on this session.
+
+    Distinct from the 409 used for finalized sessions: 403 means the session
+    is still alive but its writes are paused, and the student may retry once
+    the block expires (or is lifted).  This is the server-side enforcement
+    point -- a modified client cannot skip it, because every write path
+    passes through here.
+    """
+    block = get_active_block(session_row.id, db)
+    if block is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                f"Your exam has been paused by the invigilator until "
+                f"{block.blocked_until.strftime('%H:%M:%S')} UTC. Reason: {block.reason}"
+            ),
+        )
+
+
+def _to_session_response(session_row: ExamSession, exam: Exam, db: Session) -> SessionResponse:
     return SessionResponse(
         id=session_row.id,
         exam_id=session_row.exam_id,
@@ -91,6 +126,7 @@ def _to_session_response(session_row: ExamSession, exam: Exam) -> SessionRespons
         ended_at=session_row.ended_at,
         remaining_seconds=_remaining_seconds(session_row, exam),
         score=session_row.score,
+        active_block=_active_block_info(session_row, db),
     )
 
 
@@ -168,7 +204,7 @@ def start_exam(
     if existing is not None:
         existing = _sync_expiry(existing, exam, db)
         if existing.status == "in_progress":
-            return _to_session_response(existing, exam)
+            return _to_session_response(existing, exam, db)
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="This exam has already been attempted",
@@ -183,7 +219,7 @@ def start_exam(
     db.add(session_row)
     db.commit()
     db.refresh(session_row)
-    return _to_session_response(session_row, exam)
+    return _to_session_response(session_row, exam, db)
 
 
 @router.get("/sessions/{session_id}", response_model=SessionResponse)
@@ -195,7 +231,7 @@ def get_session(
     session_row = _get_owned_session_or_404(session_id, student, db)
     exam = db.get(Exam, session_row.exam_id)
     session_row = _sync_expiry(session_row, exam, db)
-    return _to_session_response(session_row, exam)
+    return _to_session_response(session_row, exam, db)
 
 
 @router.get("/sessions/{session_id}/questions", response_model=list[StudentQuestionResponse])
@@ -258,6 +294,10 @@ def save_answer(
             detail="Exam session is not active; answers can no longer be modified",
         )
 
+    # Server-side enforcement of an invigilator's block: rejected even for
+    # a hand-crafted request that skips the client's pause overlay.
+    _reject_if_blocked(session_row, db)
+
     question = db.get(Question, question_id)
     if question is None or question.exam_id != session_row.exam_id:
         raise HTTPException(
@@ -306,6 +346,10 @@ def submit_exam(
             status_code=status.HTTP_409_CONFLICT,
             detail="Exam session cannot be submitted (already finalized)",
         )
+
+    # A blocked student cannot submit their way out of an invigilator's
+    # pause either -- same server-side enforcement as save_answer.
+    _reject_if_blocked(session_row, db)
 
     questions = db.query(Question).filter(Question.exam_id == session_row.exam_id).all()
     answers = (

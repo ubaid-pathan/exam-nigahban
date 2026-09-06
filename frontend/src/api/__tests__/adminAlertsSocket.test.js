@@ -54,6 +54,26 @@ describe('parseAdminAlertMessage', () => {
     })
   })
 
+  it('accepts a well-formed enforcement_action payload', () => {
+    const raw = JSON.stringify({
+      type: 'enforcement_action',
+      action_id: 7,
+      session_id: 2,
+      student_id: 3,
+      action_type: 'BLOCK',
+      status: 'ACTIVE',
+    })
+
+    expect(parseAdminAlertMessage(raw)).toEqual({
+      type: 'enforcement_action',
+      action_id: 7,
+      session_id: 2,
+      student_id: 3,
+      action_type: 'BLOCK',
+      status: 'ACTIVE',
+    })
+  })
+
   it('returns null for malformed JSON without throwing', () => {
     expect(() => parseAdminAlertMessage('{not valid json')).not.toThrow()
     expect(parseAdminAlertMessage('{not valid json')).toBeNull()
@@ -187,6 +207,23 @@ describe('connectAdminAlertsSocket', () => {
       event_type: 'FACE_ABSENT',
       severity: 'high',
       status: 'PENDING_REVIEW',
+    }
+
+    FakeWebSocket.instances[0].onmessage({ data: JSON.stringify(payload) })
+
+    expect(onMessage).toHaveBeenCalledWith(payload)
+  })
+
+  it('parses and forwards a valid enforcement_action message', () => {
+    const onMessage = vi.fn()
+    connectAdminAlertsSocket({ token: 'abc', onMessage, WebSocketImpl: FakeWebSocket })
+    const payload = {
+      type: 'enforcement_action',
+      action_id: 7,
+      session_id: 2,
+      student_id: 3,
+      action_type: 'BLOCK',
+      status: 'ACTIVE',
     }
 
     FakeWebSocket.instances[0].onmessage({ data: JSON.stringify(payload) })

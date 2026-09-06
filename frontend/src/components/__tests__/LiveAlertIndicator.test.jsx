@@ -60,4 +60,31 @@ describe('LiveAlertIndicator', () => {
     expect(html).toContain('role="status"')
     expect(html).not.toContain('role="alert"')
   })
+
+  const enforcementAction = {
+    type: 'enforcement_action',
+    action_id: 7,
+    session_id: 2,
+    student_id: 3,
+    action_type: 'BLOCK',
+    status: 'ACTIVE',
+  }
+
+  it('renders the action type label for an enforcement action alert', () => {
+    expect(renderIndicator(enforcementAction)).toContain('Block')
+  })
+
+  it('renders the status label for an enforcement action alert', () => {
+    expect(renderIndicator(enforcementAction)).toContain('Active')
+  })
+
+  it('links an enforcement action alert to /admin/enforcement', () => {
+    expect(renderIndicator(enforcementAction)).toContain('href="/admin/enforcement"')
+  })
+
+  it('renders an enforcement action alert with role="status"', () => {
+    const html = renderIndicator(enforcementAction)
+    expect(html).toContain('role="status"')
+    expect(html).not.toContain('role="alert"')
+  })
 })

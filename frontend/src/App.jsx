@@ -7,6 +7,7 @@ import NotFoundPage from './pages/NotFoundPage'
 import AdminLayout from './layouts/AdminLayout'
 import DashboardPage from './pages/admin/DashboardPage'
 import MonitoringEventsPage from './pages/admin/MonitoringEventsPage'
+import EnforcementActionsPage from './pages/admin/EnforcementActionsPage'
 import AuditHistoryPage from './pages/admin/AuditHistoryPage'
 import ExamManagementPage from './pages/admin/ExamManagementPage'
 import ExamQuestionsPage from './pages/admin/ExamQuestionsPage'
@@ -33,6 +34,7 @@ export default function App() {
           <Route element={<AdminLayout />}>
             <Route path="/admin" element={<DashboardPage />} />
             <Route path="/admin/monitoring" element={<MonitoringEventsPage />} />
+            <Route path="/admin/enforcement" element={<EnforcementActionsPage />} />
             <Route path="/admin/exams" element={<ExamManagementPage />} />
             <Route path="/admin/exams/:examId/questions" element={<ExamQuestionsPage />} />
             <Route path="/admin/users" element={<UsersPage />} />

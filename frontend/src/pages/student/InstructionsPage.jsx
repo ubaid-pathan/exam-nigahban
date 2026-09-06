@@ -24,7 +24,11 @@ export default function InstructionsPage() {
 
       if (data.session_status === 'in_progress') {
         navigate(`/student/exams/${examId}/take`, { replace: true })
-      } else if (data.session_status === 'submitted' || data.session_status === 'expired') {
+      } else if (
+        data.session_status === 'submitted' ||
+        data.session_status === 'expired' ||
+        data.session_status === 'cancelled'
+      ) {
         navigate(`/student/exams/${examId}/result`, { replace: true })
       }
     } catch (err) {

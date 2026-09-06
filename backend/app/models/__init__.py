@@ -8,6 +8,7 @@ from app.models.monitoring_event import MonitoringEvent
 from app.models.monitoring_rule import MonitoringRule
 from app.models.evidence import Evidence
 from app.models.admin_action import AdminAction
+from app.models.enforcement_action import EnforcementAction
 
 __all__ = [
     "User",
@@ -20,4 +21,5 @@ __all__ = [
     "MonitoringRule",
     "Evidence",
     "AdminAction",
+    "EnforcementAction",
 ]

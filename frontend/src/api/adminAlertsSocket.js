@@ -19,10 +19,15 @@ export function buildAdminAlertsSocketUrl(baseUrl, token) {
   return `${origin}${ADMIN_ALERTS_PATH}?token=${encodeURIComponent(token)}`
 }
 
+// The message types broadcast on the admin alerts channel. Kept as an
+// explicit allow-list so a new/unknown backend message type is still
+// dropped rather than forwarded to every admin page.
+const ADMIN_ALERT_MESSAGE_TYPES = new Set(['monitoring_event', 'enforcement_action'])
+
 // Accepts the raw event.data from a WebSocket "message" event and returns
-// the parsed monitoring_event payload, or null if the data is not valid
-// JSON, not an object, or not a monitoring_event -- callers never need to
-// guard against a malformed/unexpected message themselves.
+// the parsed admin-alert payload, or null if the data is not valid JSON,
+// not an object, or not a recognized admin-alert message type -- callers
+// never need to guard against a malformed/unexpected message themselves.
 export function parseAdminAlertMessage(rawData) {
   let parsed
   try {
@@ -31,7 +36,7 @@ export function parseAdminAlertMessage(rawData) {
     return null
   }
 
-  if (!parsed || typeof parsed !== 'object' || parsed.type !== 'monitoring_event') {
+  if (!parsed || typeof parsed !== 'object' || !ADMIN_ALERT_MESSAGE_TYPES.has(parsed.type)) {
     return null
   }
 

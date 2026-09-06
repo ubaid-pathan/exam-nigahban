@@ -28,6 +28,23 @@ const OPTIONS = [
   { key: 'D', field: 'option_d' },
 ]
 
+// Server datetimes (a block's blocked_until) are naive UTC strings without
+// a timezone suffix; Date.parse would read them as local time, so a Z is
+// appended to anchor them to UTC. Returns null for anything unparseable so
+// callers can degrade gracefully.
+function parseServerUtcMs(value) {
+  if (typeof value !== 'string' || value === '') return null
+  const hasZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(value)
+  const ms = Date.parse(hasZone ? value : `${value}Z`)
+  return Number.isNaN(ms) ? null : ms
+}
+
+function formatBlockCountdown(totalSeconds) {
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return `${minutes}:${String(seconds).padStart(2, '0')}`
+}
+
 export default function TakeExamPage() {
   const { examId } = useParams()
   const navigate = useNavigate()
@@ -47,6 +64,12 @@ export default function TakeExamPage() {
 
   const [locked, setLocked] = useState(false)
   const [lockReason, setLockReason] = useState('')
+
+  // The invigilator's write-block currently in force ({ blocked_until,
+  // reason } from the periodic session resync), or null. Distinct from
+  // `locked`: a pause is temporary and the session stays alive.
+  const [activeBlock, setActiveBlock] = useState(null)
+  const [blockRemainingSeconds, setBlockRemainingSeconds] = useState(0)
 
   const [showSubmitModal, setShowSubmitModal] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -71,6 +94,9 @@ export default function TakeExamPage() {
     [sessionId],
   )
 
+  // A pause (activeBlock) deliberately does NOT stop monitoring: a blocked
+  // student may misbehave further, so evidence must keep flowing to the
+  // invigilator. Only a terminal lock ends it.
   const monitoringActive = Boolean(sessionId) && !locked && cameraStatus === 'granted'
   const { status: monitoringStatus, observationStatus, errorMessage: monitoringError } =
     useFaceMonitoring(videoRef, monitoringActive, handleMonitoringEvent)
@@ -99,7 +125,11 @@ export default function TakeExamPage() {
       const exam = await getAvailableExam(examId)
       setExamTitle(exam.title)
 
-      if (exam.session_status === 'submitted' || exam.session_status === 'expired') {
+      if (
+        exam.session_status === 'submitted' ||
+        exam.session_status === 'expired' ||
+        exam.session_status === 'cancelled'
+      ) {
         navigate(`/student/exams/${examId}/result`, { replace: true })
         return
       }
@@ -113,6 +143,7 @@ export default function TakeExamPage() {
         navigate(`/student/exams/${examId}/result`, { replace: true })
         return
       }
+      setActiveBlock(session.active_block ?? null)
 
       const [questionList, existingAnswers] = await Promise.all([
         getSessionQuestions(exam.session_id),
@@ -158,11 +189,16 @@ export default function TakeExamPage() {
         asOf: Date.now(),
         status: session.status,
       })
+      // Computed server-side on every fetch: a newly created, lifted, or
+      // expired block is picked up here without any extra endpoint.
+      setActiveBlock(session.active_block ?? null)
       if (session.status !== 'in_progress') {
         lockSession(
           session.status === 'expired'
             ? 'Your exam session has expired.'
-            : 'This exam has already been submitted.',
+            : session.status === 'cancelled'
+              ? 'This exam has been cancelled by the invigilator.'
+              : 'This exam has already been submitted.',
         )
       }
     } catch {
@@ -176,12 +212,47 @@ export default function TakeExamPage() {
     return () => clearInterval(interval)
   }, [sessionId, resync])
 
+  // Ticks the pause countdown once per second while a block is in force.
+  // When it reaches zero the server-side block has expired too (the
+  // backend filters on blocked_until), so one final resync clears the
+  // overlay and the exam resumes automatically.
+  useEffect(() => {
+    if (!activeBlock) return undefined
+    const endsAtMs = parseServerUtcMs(activeBlock.blocked_until)
+    if (endsAtMs === null) return undefined
+
+    // Guards the expiry resync so a skewed client clock (countdown reads
+    // 0 while the server still has the block) can trigger at most one
+    // resync per block -- the regular 20s resync keeps correcting after
+    // that, instead of a fetch loop.
+    let expiryResyncDone = false
+
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((endsAtMs - Date.now()) / 1000))
+      setBlockRemainingSeconds(remaining)
+      if (remaining === 0 && !expiryResyncDone) {
+        expiryResyncDone = true
+        clearInterval(interval)
+        resync()
+      }
+    }
+
+    // The first tick runs on the next macrotask so the countdown shows
+    // immediately without a synchronous setState in the effect body.
+    const initialTick = setTimeout(tick, 0)
+    const interval = setInterval(tick, 1000)
+    return () => {
+      clearTimeout(initialTick)
+      clearInterval(interval)
+    }
+  }, [activeBlock, resync])
+
   const handleTimerExpire = useCallback(() => {
     resync()
   }, [resync])
 
   const handleSelectAnswer = async (questionId, letter) => {
-    if (locked) return
+    if (locked || activeBlock) return
     const previous = answersMap[questionId]
     setAnswersMap((prev) => ({ ...prev, [questionId]: letter }))
     setSavingQuestionId(questionId)
@@ -190,7 +261,12 @@ export default function TakeExamPage() {
       await saveAnswer(sessionId, questionId, letter)
     } catch (err) {
       setAnswersMap((prev) => ({ ...prev, [questionId]: previous }))
-      if (getStatusCode(err) === 409) {
+      if (getStatusCode(err) === 403) {
+        // The invigilator paused the exam between resyncs: the server
+        // rejected the write, so resync (which renders the pause overlay
+        // from server state) and drop the optimistic selection.
+        resync()
+      } else if (getStatusCode(err) === 409) {
         lockSession('Your exam session is no longer active. Your remaining answers were not saved.')
       } else {
         setSaveError(getErrorMessage(err, 'Failed to save your answer. Please try again.'))
@@ -211,6 +287,15 @@ export default function TakeExamPage() {
         navigate(`/student/exams/${examId}/result`, { replace: true })
         return
       }
+      if (getStatusCode(err) === 403) {
+        // The invigilator paused the exam: close the modal and resync --
+        // the pause overlay explains why, and submitting becomes possible
+        // again once the block lifts.
+        setShowSubmitModal(false)
+        setSubmitting(false)
+        resync()
+        return
+      }
       setSubmitError(getErrorMessage(err, 'Unable to submit the exam. Please try again.'))
       setSubmitting(false)
     }
@@ -225,6 +310,7 @@ export default function TakeExamPage() {
   const currentQuestion = questions[currentIndex]
   const answeredIds = new Set(Object.keys(answersMap).filter((k) => answersMap[k]).map(Number))
   const answeredCount = answeredIds.size
+  const blockActive = activeBlock !== null
 
   return (
     <div className="no-select">
@@ -252,6 +338,20 @@ export default function TakeExamPage() {
         </div>
       )}
 
+      {activeBlock && (
+        <div className="alert alert-warning border-warning-subtle" role="alert">
+          <p className="mb-1 fw-bold">Your exam has been paused by the invigilator.</p>
+          <p className="mb-1 small">Reason: {activeBlock.reason}</p>
+          <p className="mb-0 small">
+            {blockRemainingSeconds > 0
+              ? `Answering and submitting resume automatically in ${formatBlockCountdown(
+                  blockRemainingSeconds,
+                )}. Your exam time is still running.`
+              : 'The pause is ending. Answering will resume automatically in a moment. Your exam time is still running.'}
+          </p>
+        </div>
+      )}
+
       <div className="row g-4">
         <div className="col-12 col-lg-8">
           <div className="card exam-card">
@@ -275,7 +375,7 @@ export default function TakeExamPage() {
                       name={`question-${currentQuestion.id}`}
                       value={key}
                       checked={answersMap[currentQuestion.id] === key}
-                      disabled={locked || savingQuestionId === currentQuestion.id}
+                      disabled={locked || blockActive || savingQuestionId === currentQuestion.id}
                       onChange={() => handleSelectAnswer(currentQuestion.id, key)}
                     />
                     <span className="form-check-label">
@@ -298,7 +398,7 @@ export default function TakeExamPage() {
                 <button
                   type="button"
                   className="btn btn-outline-secondary"
-                  disabled={currentIndex === 0}
+                  disabled={currentIndex === 0 || blockActive}
                   onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
                 >
                   Previous
@@ -307,6 +407,7 @@ export default function TakeExamPage() {
                   <button
                     type="button"
                     className="btn btn-outline-secondary"
+                    disabled={blockActive}
                     onClick={() => setCurrentIndex((i) => Math.min(questions.length - 1, i + 1))}
                   >
                     Next
@@ -315,7 +416,7 @@ export default function TakeExamPage() {
                   <button
                     type="button"
                     className="btn btn-success"
-                    disabled={locked}
+                    disabled={locked || blockActive}
                     onClick={() => setShowSubmitModal(true)}
                   >
                     Submit Exam
@@ -352,12 +453,16 @@ export default function TakeExamPage() {
                 questions={questions}
                 currentIndex={currentIndex}
                 answeredIds={answeredIds}
-                onSelect={setCurrentIndex}
+                onSelect={(index) => {
+                  if (!locked && !blockActive) {
+                    setCurrentIndex(index)
+                  }
+                }}
               />
               <button
                 type="button"
                 className="btn btn-success w-100 mt-3"
-                disabled={locked}
+                disabled={locked || blockActive}
                 onClick={() => setShowSubmitModal(true)}
               >
                 Submit Exam
