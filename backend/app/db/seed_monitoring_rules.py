@@ -57,7 +57,7 @@ DEFAULT_MONITORING_RULES = [
     },
     {
         "event_type": "FACE_ABSENT",
-        "min_duration_seconds": 5.0,
+        "min_duration_seconds": 3.0,
         "required_occurrences": 1,
         "confidence_threshold": 0.5,
         "severity": "high",

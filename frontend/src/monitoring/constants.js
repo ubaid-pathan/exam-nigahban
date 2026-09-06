@@ -41,7 +41,7 @@ export const MONITORING_RULES = {
   HEAD_UP: { minDurationSec: 3, requiredOccurrences: 3, confidenceThreshold: 0.75, severity: 'medium' },
   HEAD_DOWN: { minDurationSec: 3, requiredOccurrences: 3, confidenceThreshold: 0.75, severity: 'medium' },
   LOOKING_AWAY: { minDurationSec: 3, requiredOccurrences: 3, confidenceThreshold: 0.75, severity: 'medium' },
-  FACE_ABSENT: { minDurationSec: 5, requiredOccurrences: 1, confidenceThreshold: 0.5, severity: 'high' },
+  FACE_ABSENT: { minDurationSec: 3, requiredOccurrences: 1, confidenceThreshold: 0.5, severity: 'high' },
   MULTIPLE_FACES: { minDurationSec: 2, requiredOccurrences: 1, confidenceThreshold: 0.5, severity: 'high' },
 }
 

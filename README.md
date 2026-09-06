@@ -370,7 +370,7 @@ HEAD_RIGHT	>3 sec	3	>=0.75	Medium
 HEAD_UP	>3 sec	3	>=0.75	Medium
 HEAD_DOWN	>3 sec	3	>=0.75	Medium
 LOOKING_AWAY	>3 sec	3	>=0.75	Medium
-FACE_ABSENT	>5 sec	1	Configurable	High
+FACE_ABSENT	>3 sec	1	Configurable	High
 MULTIPLE_FACES	>2 sec	1	Configurable	High
 MOBILE_PHONE	~1 sec	1	>=0.80	High
 
