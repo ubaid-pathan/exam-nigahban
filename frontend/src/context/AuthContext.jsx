@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { fetchCurrentUser, login as loginRequest, logout as logoutRequest } from '../api/auth'
 import { TOKEN_KEY, UNAUTHORIZED_EVENT } from '../api/client'
+import { clearStoredNotifications } from '../utils/adminNotifications'
 
 const AuthContext = createContext(null)
 
@@ -23,6 +24,11 @@ export function AuthProvider({ children }) {
 
   const clearAuth = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY)
+    // The admin header's notification queue is cached per browser, so it
+    // must be dropped alongside the token -- otherwise one admin's
+    // monitoring alerts would still be listed for whoever signs in next
+    // on the same machine.
+    clearStoredNotifications(localStorage)
     setToken(null)
     setUser(null)
   }, [])

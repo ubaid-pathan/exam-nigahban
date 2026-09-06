@@ -210,3 +210,15 @@ export function FileIcon(props) {
     </svg>
   )
 }
+
+// Outline bell for the header's notification control. Matches the stroke
+// weight and 24x24 viewBox of every other icon in this file (see
+// commonProps) rather than introducing a second visual style.
+export function BellIcon(props) {
+  return (
+    <svg {...commonProps} {...props}>
+      <path d="M18 8.5a6 6 0 1 0-12 0c0 4.2-1.4 5.6-2 6.3-.2.3 0 .7.4.7h15.2c.4 0 .6-.4.4-.7-.6-.7-2-2.1-2-6.3Z" />
+      <path d="M10.2 19a2 2 0 0 0 3.6 0" />
+    </svg>
+  )
+}
