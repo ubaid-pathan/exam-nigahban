@@ -17,6 +17,28 @@ import ErrorState from '../ErrorState'
 import EmptyState from '../EmptyState'
 import EvidenceReviewPanel from '../EvidenceReviewPanel'
 
+/**
+ * Which full-page state, if any, should REPLACE the whole view.
+ *
+ * Exists as a named, exported predicate because getting it wrong is
+ * invisible until it bites: this component renders the Evidence Review
+ * dialog, and reviewing an event triggers a background refetch. Returning
+ * a spinner whenever `loading` is true unmounted that dialog mid-review
+ * and discarded the state that reveals the enforcement ladder after a
+ * confirmation -- so the ladder was unreachable from this view entirely,
+ * while working fine from the flat events list.
+ *
+ * The rule: only replace the view when there is nothing to show yet. Once
+ * data has arrived, a refetch or a transient failure is reported in place.
+ *
+ * @returns {'loading'|'error'|null}
+ */
+export function fullPageState({ loading, error, data }) {
+  if (loading && !data) return 'loading'
+  if (error && !data) return 'error'
+  return null
+}
+
 // One row per student exam session, combining every violation that session
 // produced -- so a student who triggers Face Absent three times and Mobile
 // Phone twice reads as one record rather than five unrelated rows.
@@ -110,9 +132,14 @@ export default function MonitoringSessionsView({ filters, pageSize }) {
     Object.keys(expanded).forEach((sessionId) => loadSessionEvents(Number(sessionId)))
   }, [load, expanded, loadSessionEvents])
 
-  if (loading) return <LoadingState message="Loading monitoring sessions..." />
-  if (error) return <ErrorState message={error} onRetry={load} />
-  if (!data || data.items.length === 0) {
+  const pageState = fullPageState({ loading, error, data })
+  if (pageState === 'loading') {
+    return <LoadingState message="Loading monitoring sessions..." />
+  }
+  if (pageState === 'error') {
+    return <ErrorState message={error} onRetry={load} />
+  }
+  if (!loading && !error && (!data || data.items.length === 0)) {
     return (
       <EmptyState
         title="No sessions with violations"
@@ -123,8 +150,17 @@ export default function MonitoringSessionsView({ filters, pageSize }) {
 
   return (
     <>
+      {error && (
+        <div className="alert alert-warning py-2 small" role="alert">
+          {error}{' '}
+          <button type="button" className="btn btn-link btn-sm p-0 align-baseline" onClick={load}>
+            Retry
+          </button>
+        </div>
+      )}
+
       <div className="d-flex flex-column gap-3">
-        {data.items.map((session) => {
+        {(data?.items ?? []).map((session) => {
           const detail = expanded[session.session_id]
           const isOpen = Boolean(detail)
           const typeCounts = sortEventTypeCounts(session.events_by_type)
@@ -271,6 +307,7 @@ export default function MonitoringSessionsView({ filters, pageSize }) {
         })}
       </div>
 
+      {data && (
       <div className="d-flex justify-content-between align-items-center mt-3">
         <p className="text-muted small mb-0">
           Page {data.page} of {data.total_pages} ({data.total} session
@@ -297,6 +334,7 @@ export default function MonitoringSessionsView({ filters, pageSize }) {
           </button>
         </div>
       </div>
+      )}
 
       {selectedEvent && (
         <EvidenceReviewPanel
