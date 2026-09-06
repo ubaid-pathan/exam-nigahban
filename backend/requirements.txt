@@ -12,5 +12,6 @@ websockets
 passlib[bcrypt]
 bcrypt==4.0.1
 PyJWT
+boto3
 pytest
 httpx

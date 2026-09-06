@@ -1,4 +1,4 @@
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import URL, make_url
 
@@ -51,6 +51,19 @@ class Settings(BaseSettings):
     # object storage later never touches model/route/schema code.
     evidence_storage_root: str = "evidence"
 
+    # Evidence image storage backend.  "local" writes to the filesystem at
+    # evidence_storage_root (fine for development, but ephemeral on hosts
+    # like Render); "s3" uploads to S3-compatible object storage (e.g.
+    # Cloudflare R2), which survives redeploys.  See
+    # app/services/evidence_storage.py -- only that module knows the
+    # difference between the backends.
+    evidence_backend: str = "local"
+    evidence_s3_endpoint_url: str | None = None
+    evidence_s3_bucket: str | None = None
+    evidence_s3_region: str = "auto"
+    evidence_s3_access_key_id: str | None = None
+    evidence_s3_secret_access_key: str | None = None
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -74,6 +87,46 @@ class Settings(BaseSettings):
                 f"characters long (got {len(value)})."
             )
         return value
+
+    @field_validator("evidence_backend")
+    @classmethod
+    def validate_evidence_backend(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if normalized not in ("local", "s3"):
+            raise ValueError(
+                f"Unsupported EVIDENCE_BACKEND '{value}'. "
+                "Supported values: local, s3"
+            )
+        return normalized
+
+    @model_validator(mode="after")
+    def validate_evidence_s3_settings(self) -> "Settings":
+        # Fail fast at startup: an s3 backend with missing credentials would
+        # otherwise fail only when the first evidence image is saved,
+        # silently losing proctoring evidence in the meantime.
+        if self.evidence_backend == "s3":
+            missing = [
+                name
+                for name, value in (
+                    ("EVIDENCE_S3_BUCKET", self.evidence_s3_bucket),
+                    (
+                        "EVIDENCE_S3_ACCESS_KEY_ID",
+                        self.evidence_s3_access_key_id,
+                    ),
+                    (
+                        "EVIDENCE_S3_SECRET_ACCESS_KEY",
+                        self.evidence_s3_secret_access_key,
+                    ),
+                )
+                if not value or not value.strip()
+            ]
+            if missing:
+                raise ValueError(
+                    "EVIDENCE_BACKEND=s3 requires "
+                    + ", ".join(missing)
+                    + " to be set."
+                )
+        return self
 
     @field_validator("db_driver")
     @classmethod

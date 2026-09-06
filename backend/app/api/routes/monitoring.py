@@ -22,6 +22,7 @@ from app.services.evidence_storage import (
     EvidenceValidationError,
     decode_and_validate_image,
     delete_evidence_file,
+    evidence_storage_is_durable,
     save_evidence_image,
 )
 from app.websocket.manager import manager as websocket_manager
@@ -233,15 +234,23 @@ def _try_attach_evidence(
         logger.exception("Failed to write evidence image for event %s", event.id)
         return None
 
+    metadata_json: dict = {
+        "content_type": "image/jpeg",
+        "size_bytes": len(image_bytes),
+    }
+    if not evidence_storage_is_durable():
+        # The local backend may live on an ephemeral filesystem (e.g.
+        # Render), where files are lost on redeploy, so keep a base64 copy
+        # in the DB row as a survival fallback. Durable object storage
+        # needs no such copy -- embedding it would bloat every row by the
+        # full image size for no benefit.
+        metadata_json["image_base64"] = evidence_image_base64
+
     evidence = Evidence(
         event_id=event.id,
         image_path=relative_path,
         captured_at=captured_at,
-        metadata_json={
-            "content_type": "image/jpeg",
-            "size_bytes": len(image_bytes),
-            "image_base64": evidence_image_base64,
-        },
+        metadata_json=metadata_json,
     )
     try:
         db.add(evidence)

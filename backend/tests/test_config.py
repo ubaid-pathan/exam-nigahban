@@ -85,3 +85,50 @@ def test_running_app_settings_pass_validation():
 
     assert settings.secret_key != INSECURE_SECRET_KEY_PLACEHOLDER
     assert len(settings.secret_key) >= MIN_SECRET_KEY_LENGTH
+
+
+# ---------------------------------------------------------------------------
+# Evidence storage backend configuration
+# ---------------------------------------------------------------------------
+
+
+def test_evidence_backend_default_is_local():
+    """Without configuration the filesystem backend is used (dev default)."""
+    assert _build_settings().evidence_backend == "local"
+
+
+def test_unsupported_evidence_backend_is_rejected():
+    with pytest.raises(ValidationError) as exc_info:
+        _build_settings(evidence_backend="ftp")
+
+    assert "EVIDENCE_BACKEND" in str(exc_info.value)
+
+
+def test_evidence_backend_is_normalized():
+    settings = _build_settings(evidence_backend=" Local ")
+
+    assert settings.evidence_backend == "local"
+
+
+def test_s3_backend_requires_credentials():
+    """Selecting s3 without bucket/keys must fail at startup, not at the
+    first evidence upload."""
+    with pytest.raises(ValidationError) as exc_info:
+        _build_settings(evidence_backend="s3")
+
+    message = str(exc_info.value).lower()
+    assert "evidence_s3_bucket" in message
+    assert "evidence_s3_access_key_id" in message
+    assert "evidence_s3_secret_access_key" in message
+
+
+def test_s3_backend_with_credentials_is_accepted():
+    settings = _build_settings(
+        evidence_backend="s3",
+        evidence_s3_bucket="exam-nigahban-evidence",
+        evidence_s3_access_key_id="key-id",
+        evidence_s3_secret_access_key="secret",
+    )
+
+    assert settings.evidence_backend == "s3"
+    assert settings.evidence_s3_region == "auto"

@@ -600,6 +600,13 @@ SECRET_KEY=your_secure_secret_key
 
 CORS_ORIGINS=http://localhost:5173
 
+Evidence image storage (see backend/.env.example for the full guide):
+
+EVIDENCE_BACKEND=local
+EVIDENCE_STORAGE_ROOT=evidence
+
+Set EVIDENCE_BACKEND=s3 with the bucket/credential variables to store evidence images in durable S3-compatible object storage (e.g. Cloudflare R2) instead of the filesystem, which is ephemeral on hosts like Render. After switching, run backend/migrate_evidence_to_s3.py once to upload legacy database-embedded images.
+
 Never commit the real .env file.
 
 Database Setup
