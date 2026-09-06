@@ -245,6 +245,11 @@ def _other_active_admin_count(db: Session, excluding_user_id: int) -> int:
     )
 
 
+def _system_admin(db: Session) -> User | None:
+    """The protected root account, if one has been designated."""
+    return db.query(User).filter(User.is_system_admin.is_(True)).first()
+
+
 @router.get(
     "/admins",
     response_model=AdminListResponse,
@@ -296,6 +301,17 @@ def update_admin_status(
     current_admin: User = Depends(require_admin),
 ) -> User:
     target = _get_admin_or_404(user_id, db)
+
+    # The protected root account cannot be deactivated by anyone, including
+    # itself. This is what guarantees the system always retains a way in,
+    # and it deliberately sits ABOVE the last-admin and self-deactivation
+    # rules below: those depend on how many other admins happen to be
+    # active, whereas this one holds unconditionally.
+    if target.is_system_admin and not payload.status:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="The system administrator account cannot be deactivated",
+        )
 
     if not payload.status:
         # Checked in this order deliberately: the caller is always active

@@ -27,6 +27,11 @@ class UserResponse(BaseModel):
     status: bool
     full_name: str | None = None
     email: str | None = None
+    # Exposed so the admin roster can badge the protected account and
+    # disable its controls with an explanation. Deliberately not hidden: a
+    # control that is disabled for a stated reason reads as intentional,
+    # whereas a missing row reads as a bug.
+    is_system_admin: bool = False
     created_at: datetime
 
 

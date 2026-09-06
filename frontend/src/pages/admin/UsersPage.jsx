@@ -49,6 +49,7 @@ function normalizeStudent(student) {
     program: student.department,
     section: student.class_name,
     status: student.account_status,
+    isSystemAdmin: false,
     raw: student,
   }
 }
@@ -67,6 +68,11 @@ function normalizeAdmin(admin) {
     program: null,
     section: null,
     status: admin.status,
+    // The protected root account: badged in the table and its deactivate
+    // control replaced by an explanation. The backend refuses the request
+    // regardless (403) -- this only stops the UI offering an action that
+    // cannot succeed.
+    isSystemAdmin: Boolean(admin.is_system_admin),
     raw: admin,
   }
 }
@@ -356,6 +362,13 @@ export default function UsersPage() {
                         <span className={`badge ${statusBadgeClass(row.status)}`}>
                           {statusLabel(row.status)}
                         </span>
+                        {/* Marks the protected root account. Shown rather
+                            than hidden: a control disabled for a stated
+                            reason reads as intentional, whereas a row that
+                            simply behaves differently reads as a bug. */}
+                        {row.isSystemAdmin && (
+                          <span className="badge text-bg-dark ms-1">System Admin</span>
+                        )}
                       </td>
                       <td>
                         {/* Flat flex row rather than a fused .btn-group --
@@ -377,7 +390,11 @@ export default function UsersPage() {
                               Edit
                             </button>
                           )}
-                          {isSelfAdmin ? (
+                          {row.isSystemAdmin ? (
+                            <span className="text-muted small">
+                              Protected account &mdash; cannot be deactivated
+                            </span>
+                          ) : isSelfAdmin ? (
                             <span className="text-muted small">
                               You cannot deactivate your own account
                             </span>

@@ -54,6 +54,24 @@ class User(Base):
         nullable=True,
     )
 
+    # The protected root account. At most one User carries this flag, and
+    # it may not be deactivated by anyone -- including itself -- so the
+    # system can never be left without a way in. Deliberately NOT a role:
+    # role drives authorization ("admin" vs "student") and adding a third
+    # value would mean auditing every role check in the codebase. This is
+    # an orthogonal protection marker on an account that is already an
+    # admin, so every existing check keeps working untouched.
+    #
+    # Set only by app/cli/create_system_admin.py, never over the API: an
+    # account that can be minted through an HTTP call is exactly as strong
+    # as the weakest admin session.
+    is_system_admin: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="0",
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=datetime.utcnow,

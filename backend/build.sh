@@ -9,6 +9,10 @@ pip install -r requirements.txt
 # Create tables (idempotent — safe to run on every deploy)
 python init_db.py
 
+# Add columns that create_all cannot add to an existing table. Idempotent
+# and dialect-agnostic, so it is safe on every deploy including the first.
+python migrate_add_system_admin.py
+
 # Report any drift between the live schema and the models. Read-only, and
 # deliberately non-fatal (|| true): create_all above cannot add columns to
 # an existing table, and this is the only place that gap becomes visible
