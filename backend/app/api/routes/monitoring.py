@@ -2,6 +2,7 @@ import logging
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import case, func, or_
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_admin
@@ -16,6 +17,8 @@ from app.schemas.monitoring import (
     MonitoringEventCreate,
     MonitoringEventListResponse,
     MonitoringEventResponse,
+    MonitoringSessionListResponse,
+    MonitoringSessionSummary,
     Severity,
 )
 from app.services.evidence_storage import (
@@ -346,6 +349,179 @@ def list_monitoring_events(
     total_pages = (total + page_size - 1) // page_size
 
     return MonitoringEventListResponse(
+        items=items,
+        page=page,
+        page_size=page_size,
+        total=total,
+        total_pages=total_pages,
+    )
+
+
+@router.get(
+    "/sessions",
+    response_model=MonitoringSessionListResponse,
+    dependencies=[Depends(require_admin)],
+)
+def list_monitoring_sessions(
+    event_status: EventStatus | None = Query(default=None, alias="status"),
+    severity: Severity | None = None,
+    event_type: EventType | None = None,
+    exam_id: int | None = None,
+    session_id: int | None = None,
+    session_status: str | None = None,
+    search: str | None = None,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    db: Session = Depends(get_db),
+) -> MonitoringSessionListResponse:
+    """Admin-only review queue rolled up to one row per student session.
+
+    A student who triggers FACE_ABSENT three times and MOBILE_PHONE twice
+    appears here once, with those counts, instead of as five separate rows
+    -- while every underlying MonitoringEvent and its evidence stays
+    exactly as it was.  Drill-down reuses the existing
+    GET /api/monitoring/events?session_id=<id>; nothing about that endpoint
+    or the evidence review flow changes.
+
+    Filters restrict which events are aggregated (not merely which sessions
+    appear), so a filtered listing's counts always describe precisely the
+    events the caller asked about.  Sessions left with no matching events
+    drop out of the results entirely.
+
+    Cost is two queries regardless of page size: one grouped aggregate, and
+    one per-type breakdown scoped to the session ids on the current page.
+    """
+    filters = []
+    if event_status is not None:
+        filters.append(MonitoringEvent.status == event_status)
+    if severity is not None:
+        filters.append(MonitoringEvent.severity == severity)
+    if event_type is not None:
+        filters.append(MonitoringEvent.event_type == event_type)
+    if exam_id is not None:
+        filters.append(Exam.id == exam_id)
+    # Accepted so the admin UI's Session ID filter behaves identically in
+    # the grouped and flat views rather than being silently ignored here.
+    if session_id is not None:
+        filters.append(MonitoringEvent.session_id == session_id)
+    if session_status is not None:
+        filters.append(ExamSession.status == session_status)
+    if search:
+        pattern = f"%{search}%"
+        filters.append(
+            or_(
+                Student.full_name.ilike(pattern),
+                Student.student_id.ilike(pattern),
+            )
+        )
+
+    # Grouped by every non-aggregated column that is selected, which
+    # PostgreSQL requires and MySQL/SQLite accept -- so the same statement
+    # runs unchanged on all three.
+    group_columns = (
+        MonitoringEvent.session_id,
+        ExamSession.status,
+        ExamSession.started_at,
+        ExamSession.ended_at,
+        Student.student_id,
+        Student.full_name,
+        Exam.id,
+        Exam.title,
+    )
+
+    aggregate_query = (
+        db.query(
+            MonitoringEvent.session_id.label("session_id"),
+            ExamSession.status.label("session_status"),
+            ExamSession.started_at.label("started_at"),
+            ExamSession.ended_at.label("ended_at"),
+            Student.student_id.label("student_code"),
+            Student.full_name.label("student_full_name"),
+            Exam.id.label("exam_id"),
+            Exam.title.label("exam_title"),
+            func.count(func.distinct(MonitoringEvent.id)).label("total_events"),
+            func.sum(
+                case((MonitoringEvent.status == "PENDING_REVIEW", 1), else_=0)
+            ).label("pending_events"),
+            func.sum(case((MonitoringEvent.status == "CONFIRMED", 1), else_=0)).label(
+                "confirmed_events"
+            ),
+            func.sum(case((MonitoringEvent.status == "IGNORED", 1), else_=0)).label(
+                "ignored_events"
+            ),
+            func.sum(case((MonitoringEvent.severity == "high", 1), else_=0)).label(
+                "high_severity_events"
+            ),
+            # Evidence is unique per event (see app/models/evidence.py), so
+            # this outer join can never multiply the aggregated event rows.
+            func.count(func.distinct(Evidence.id)).label("evidence_count"),
+            func.min(MonitoringEvent.detected_at).label("first_detected_at"),
+            func.max(MonitoringEvent.detected_at).label("last_detected_at"),
+        )
+        .join(ExamSession, ExamSession.id == MonitoringEvent.session_id)
+        .join(Student, Student.id == ExamSession.student_id)
+        .join(Exam, Exam.id == ExamSession.exam_id)
+        .outerjoin(Evidence, Evidence.event_id == MonitoringEvent.id)
+        .filter(*filters)
+        .group_by(*group_columns)
+    )
+
+    # One row per group, so the page count is the number of groups -- not
+    # the number of underlying events.
+    total = db.query(func.count()).select_from(aggregate_query.subquery()).scalar() or 0
+
+    rows = (
+        aggregate_query.order_by(func.max(MonitoringEvent.detected_at).desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+
+    session_ids = [row.session_id for row in rows]
+    events_by_type: dict[int, dict[str, int]] = {sid: {} for sid in session_ids}
+    if session_ids:
+        breakdown = (
+            db.query(
+                MonitoringEvent.session_id,
+                MonitoringEvent.event_type,
+                func.count(MonitoringEvent.id),
+            )
+            .join(ExamSession, ExamSession.id == MonitoringEvent.session_id)
+            .join(Student, Student.id == ExamSession.student_id)
+            .join(Exam, Exam.id == ExamSession.exam_id)
+            .filter(MonitoringEvent.session_id.in_(session_ids), *filters)
+            .group_by(MonitoringEvent.session_id, MonitoringEvent.event_type)
+            .all()
+        )
+        for row_session_id, row_event_type, count in breakdown:
+            events_by_type[row_session_id][row_event_type] = count
+
+    items = [
+        MonitoringSessionSummary(
+            session_id=row.session_id,
+            session_status=row.session_status,
+            started_at=row.started_at,
+            ended_at=row.ended_at,
+            student_id=row.student_code,
+            student_full_name=row.student_full_name,
+            exam_id=row.exam_id,
+            exam_title=row.exam_title,
+            total_events=row.total_events,
+            pending_events=int(row.pending_events or 0),
+            confirmed_events=int(row.confirmed_events or 0),
+            ignored_events=int(row.ignored_events or 0),
+            high_severity_events=int(row.high_severity_events or 0),
+            evidence_count=row.evidence_count,
+            first_detected_at=row.first_detected_at,
+            last_detected_at=row.last_detected_at,
+            events_by_type=events_by_type.get(row.session_id, {}),
+        )
+        for row in rows
+    ]
+
+    total_pages = (total + page_size - 1) // page_size
+
+    return MonitoringSessionListResponse(
         items=items,
         page=page,
         page_size=page_size,

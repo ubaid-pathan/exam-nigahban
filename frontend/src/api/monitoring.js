@@ -43,3 +43,34 @@ export async function postMonitoringEvent(sessionId, event) {
   })
   return data
 }
+
+// Session-level rollup: one row per student exam session, with that
+// session's violations aggregated by type. Drill-down uses
+// listMonitoringEvents({ sessionId }) above -- the individual events (and
+// their evidence) are never merged, only grouped for display.
+export async function listMonitoringSessions({
+  status,
+  severity,
+  eventType,
+  examId,
+  sessionId,
+  sessionStatus,
+  search,
+  page,
+  pageSize,
+} = {}) {
+  const { data } = await apiClient.get('/api/monitoring/sessions', {
+    params: {
+      status: status || undefined,
+      severity: severity || undefined,
+      event_type: eventType || undefined,
+      exam_id: examId || undefined,
+      session_id: sessionId || undefined,
+      session_status: sessionStatus || undefined,
+      search: search || undefined,
+      page,
+      page_size: pageSize,
+    },
+  })
+  return data
+}

@@ -16,6 +16,7 @@ router = APIRouter(
 @router.get("", response_model=AuditLogListResponse)
 def list_audit_log(
     action: AuditAction | None = None,
+    session_id: int | None = None,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -55,6 +56,12 @@ def list_audit_log(
 
     if action is not None:
         query = query.filter(AdminAction.action == action)
+    # Narrows the log to the decisions taken on one student's exam session,
+    # so the admin UI can present them as a single combined record without
+    # merging the rows themselves -- each decision stays separately
+    # recorded and attributable, which is the point of an audit trail.
+    if session_id is not None:
+        query = query.filter(MonitoringEvent.session_id == session_id)
 
     total = query.count()
 

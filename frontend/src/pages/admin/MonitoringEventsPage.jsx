@@ -13,9 +13,18 @@ import LoadingState from '../../components/LoadingState'
 import ErrorState from '../../components/ErrorState'
 import EmptyState from '../../components/EmptyState'
 import EvidenceReviewPanel from '../../components/EvidenceReviewPanel'
+import MonitoringSessionsView from '../../components/admin/MonitoringSessionsView'
 
 const PAGE_SIZE = 10
 const EMPTY_FILTERS = { status: '', eventType: '', sessionId: '' }
+
+// "sessions" combines each student's violations for one exam session into
+// a single record (the default -- it is how an invigilator actually thinks
+// about a candidate); "events" is the flat per-violation list, kept because
+// it is the only way to filter across sessions, e.g. every mobile-phone
+// detection today regardless of who triggered it.
+const VIEW_SESSIONS = 'sessions'
+const VIEW_EVENTS = 'events'
 // MOBILE_PHONE is deliberately not part of MONITORING_EVENT_TYPES /
 // MONITORING_RULES in monitoring/constants.js -- it's detected by a
 // separate YOLOX rule engine (see MOBILE_PHONE_RULE and the comment above
@@ -32,8 +41,15 @@ export default function MonitoringEventsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [selectedEvent, setSelectedEvent] = useState(null)
+  const [view, setView] = useState(VIEW_SESSIONS)
 
   const load = useCallback(async () => {
+    // Only the flat view fetches here; the grouped view owns its own
+    // fetching (and its own pagination, which counts sessions not events).
+    if (view !== VIEW_EVENTS) {
+      setLoading(false)
+      return
+    }
     setLoading(true)
     setError('')
     try {
@@ -50,7 +66,7 @@ export default function MonitoringEventsPage() {
     } finally {
       setLoading(false)
     }
-  }, [appliedFilters, page])
+  }, [appliedFilters, page, view])
 
   useEffect(() => {
     load()
@@ -79,7 +95,27 @@ export default function MonitoringEventsPage() {
 
   return (
     <div>
-      <h1 className="h4 mb-4">Monitoring Events</h1>
+      <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+        <h1 className="h4 mb-0">Monitoring Events</h1>
+        <div className="btn-group btn-group-sm" role="group" aria-label="Result grouping">
+          <button
+            type="button"
+            className={`btn btn-outline-primary${view === VIEW_SESSIONS ? ' active' : ''}`}
+            aria-pressed={view === VIEW_SESSIONS}
+            onClick={() => setView(VIEW_SESSIONS)}
+          >
+            By Student Session
+          </button>
+          <button
+            type="button"
+            className={`btn btn-outline-primary${view === VIEW_EVENTS ? ' active' : ''}`}
+            aria-pressed={view === VIEW_EVENTS}
+            onClick={() => setView(VIEW_EVENTS)}
+          >
+            All Events
+          </button>
+        </div>
+      </div>
 
       <form className="row g-2 align-items-end mb-4" onSubmit={handleApplyFilters}>
         <div className="col-6 col-md-3">
@@ -144,16 +180,22 @@ export default function MonitoringEventsPage() {
         </div>
       </form>
 
-      {loading && <LoadingState message="Loading monitoring events..." />}
-      {!loading && error && <ErrorState message={error} onRetry={load} />}
-      {!loading && !error && data && data.items.length === 0 && (
+      {view === VIEW_SESSIONS && (
+        <MonitoringSessionsView filters={appliedFilters} pageSize={PAGE_SIZE} />
+      )}
+
+      {view === VIEW_EVENTS && loading && (
+        <LoadingState message="Loading monitoring events..." />
+      )}
+      {view === VIEW_EVENTS && !loading && error && <ErrorState message={error} onRetry={load} />}
+      {view === VIEW_EVENTS && !loading && !error && data && data.items.length === 0 && (
         <EmptyState
           title="No monitoring events"
           message="No monitoring events match the current filters."
         />
       )}
 
-      {!loading && !error && data && data.items.length > 0 && (
+      {view === VIEW_EVENTS && !loading && !error && data && data.items.length > 0 && (
         <>
           <div className="table-responsive">
             <table className="table table-sm table-hover align-middle">
@@ -238,6 +280,9 @@ export default function MonitoringEventsPage() {
           event={selectedEvent}
           onClose={() => setSelectedEvent(null)}
           onReviewed={handleReviewed}
+          // Refetches the table while leaving the panel open, so a
+          // confirmed event can be acted on without reopening it.
+          onRefresh={load}
         />
       )}
     </div>

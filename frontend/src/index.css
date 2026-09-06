@@ -939,3 +939,50 @@ body {
 
 /* The live region announcing new alerts uses Bootstrap's own
    .visually-hidden utility -- deliberately not redefined here. */
+
+/* ==========================================================================
+   Monitoring session rollup card
+   ========================================================================== */
+
+/* Triage weight is carried by a left accent as well as the badge, so
+   urgency survives without relying on color alone (CLAUDE.md section 17):
+   the badge text still reads "N pending review" / "All reviewed". */
+.session-card {
+  border-left: 4px solid var(--app-border-strong);
+}
+
+.session-card--critical {
+  border-left-color: var(--app-danger);
+}
+
+.session-card--pending {
+  border-left-color: var(--app-warning);
+}
+
+.session-card--clear {
+  border-left-color: var(--app-success);
+}
+
+.session-card__avatar {
+  flex: 0 0 auto;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  background-color: var(--app-primary-soft);
+  color: var(--app-primary);
+  border: 1px solid var(--app-primary-border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* Flex items default to min-width:auto, which blocks shrinking and stops
+   .text-truncate on the student name from ever taking effect. Named and
+   scoped rather than adding a generic min-w-0 utility, which would be a
+   Tailwind idiom this project deliberately does not use. */
+.session-card__identity {
+  min-width: 0;
+}

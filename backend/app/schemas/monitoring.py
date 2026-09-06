@@ -101,3 +101,57 @@ class MonitoringEventListResponse(BaseModel):
     page_size: int
     total: int
     total_pages: int
+
+
+# ---------------------------------------------------------------------------
+# Session-level aggregation
+# ---------------------------------------------------------------------------
+
+
+class MonitoringSessionSummary(BaseModel):
+    """All monitoring activity for one student's exam session, combined.
+
+    A presentation-layer rollup only: every underlying MonitoringEvent row
+    (and its own Evidence) is left completely intact. Merging events into a
+    single stored record would destroy the per-detection evidence this
+    system exists to produce, so the grouping happens here in the query
+    rather than in the database.
+
+    The counts describe the events matching the caller's filters, not the
+    session's lifetime totals -- filtering by severity=high reports each
+    session's high-severity activity, which is what makes the filtered
+    view readable.
+    """
+
+    session_id: int
+    session_status: str
+    started_at: datetime
+    ended_at: datetime | None
+
+    student_id: str
+    student_full_name: str
+    exam_id: int
+    exam_title: str
+
+    total_events: int
+    pending_events: int
+    confirmed_events: int
+    ignored_events: int
+    high_severity_events: int
+    evidence_count: int
+
+    first_detected_at: datetime
+    last_detected_at: datetime
+
+    # event_type -> count, e.g. {"FACE_ABSENT": 3, "MOBILE_PHONE": 2}.
+    # Built by a second grouped query scoped to the current page's session
+    # ids, so listing N sessions never costs N queries.
+    events_by_type: dict[str, int]
+
+
+class MonitoringSessionListResponse(BaseModel):
+    items: list[MonitoringSessionSummary]
+    page: int
+    page_size: int
+    total: int
+    total_pages: int

@@ -61,3 +61,53 @@ export const EVENT_TYPE_LABELS = {
 export function eventTypeLabel(type) {
   return EVENT_TYPE_LABELS[type] || type || 'Unknown'
 }
+
+/**
+ * Turns a session rollup's `events_by_type` map into a display-ordered
+ * list of { type, label, count }, busiest activity first and ties broken
+ * alphabetically so the order is stable across refetches.
+ *
+ * Pure, so the ordering rule the admin UI depends on is testable without
+ * rendering anything.
+ */
+export function sortEventTypeCounts(eventsByType) {
+  return Object.entries(eventsByType || {})
+    .filter(([, count]) => count > 0)
+    .sort(([typeA, countA], [typeB, countB]) =>
+      countB - countA || typeA.localeCompare(typeB),
+    )
+    .map(([type, count]) => ({ type, label: eventTypeLabel(type), count }))
+}
+
+/**
+ * How urgently a session rollup needs an invigilator's attention.
+ *
+ *   'critical' - high-severity violations are still awaiting review
+ *   'pending'  - violations await review, none of them high severity
+ *   'clear'    - every violation in this session has been reviewed
+ *
+ * Pure, and separate from the rendering, so the triage rule the admin
+ * screen sorts its visual weight by is testable on its own.
+ */
+export function sessionAlertLevel(session) {
+  const pending = session?.pending_events ?? 0
+  if (pending === 0) return 'clear'
+  // high_severity_events counts high-severity violations in the session,
+  // which may already have been reviewed -- so a session is only critical
+  // when it has BOTH high-severity activity and outstanding review work.
+  return (session?.high_severity_events ?? 0) > 0 ? 'critical' : 'pending'
+}
+
+/**
+ * Two-letter initials for a student's name, used by the roster-style
+ * avatar on the session rollup. Falls back to '?' for an empty name.
+ */
+export function studentInitials(fullName) {
+  const parts = String(fullName || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+  if (parts.length === 0) return '?'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
