@@ -14,6 +14,7 @@ from app.api.routes import (
     reports,
     student_exams,
     users,
+    void,
 )
 from app.core.config import settings
 from app.websocket import router as websocket_router
@@ -43,6 +44,7 @@ app.include_router(admin_dashboard.router)
 app.include_router(monitoring_rules.router)
 app.include_router(enforcement.router)
 app.include_router(reports.router)
+app.include_router(void.router)
 app.include_router(audit.router)
 app.include_router(websocket_router.router)
 

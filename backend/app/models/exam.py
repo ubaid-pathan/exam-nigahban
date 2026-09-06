@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, Integer, String, Text
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -40,4 +40,27 @@ class Exam(Base):
         DateTime,
         default=datetime.utcnow,
         nullable=False,
+    )
+
+    # Voiding, not deletion. This system's guarantee is an append-only
+    # record, so a row that must stop having effect is marked rather than
+    # removed: it disappears from every queue, count and report, but
+    # survives with who voided it, when, and why. That keeps the question
+    # "what happened to this record?" answerable, which a DELETE does not.
+    #
+    # Set only through the system-administrator void endpoint, which
+    # requires a re-entered password and a written reason.
+    voided_at: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        nullable=True,
+    )
+
+    voided_by_admin_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id"),
+        nullable=True,
+    )
+
+    void_reason: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
     )

@@ -46,6 +46,9 @@ def get_dashboard_summary(db: Session = Depends(get_db)) -> DashboardSummaryResp
 
     status_counts = dict(
         db.query(MonitoringEvent.status, func.count(MonitoringEvent.id))
+        # Voided violations are excluded from every headline count, so the
+        # dashboard agrees with the queue an administrator actually sees.
+        .filter(MonitoringEvent.voided_at.is_(None))
         .group_by(MonitoringEvent.status)
         .all()
     )
@@ -59,6 +62,7 @@ def get_dashboard_summary(db: Session = Depends(get_db)) -> DashboardSummaryResp
         .filter(
             MonitoringEvent.severity == "high",
             MonitoringEvent.status == "PENDING_REVIEW",
+            MonitoringEvent.voided_at.is_(None),
         )
         .scalar()
     )

@@ -49,13 +49,18 @@ def list_evidence(
     EvidenceResponse no longer serializes the fallback image (the stored
     row still keeps it; GET /api/evidence/{id}/image still uses it).
     """
-    query = db.query(Evidence)
+    # Evidence is reached only through its violation, so a voided
+    # violation withdraws its evidence from the listing too.
+    query = db.query(Evidence).join(
+        MonitoringEvent, MonitoringEvent.id == Evidence.event_id
+    ).filter(MonitoringEvent.voided_at.is_(None))
     if event_id is not None:
         query = query.filter(Evidence.event_id == event_id)
     if session_id is not None:
-        query = query.join(
-            MonitoringEvent, MonitoringEvent.id == Evidence.event_id
-        ).filter(MonitoringEvent.session_id == session_id)
+        # No join here: the base query above already joins MonitoringEvent
+        # for the voided filter, and joining it twice makes every
+        # monitoring_events column ambiguous.
+        query = query.filter(MonitoringEvent.session_id == session_id)
 
     total = query.count()
     rows = (

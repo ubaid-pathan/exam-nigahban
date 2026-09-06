@@ -37,7 +37,11 @@ def get_current_student(
 def _get_active_exam_or_404(exam_id: int, db: Session) -> Exam:
     exam = (
         db.query(Exam)
-        .filter(Exam.id == exam_id, Exam.status == "active")
+        .filter(
+            Exam.id == exam_id,
+            Exam.status == "active",
+            Exam.voided_at.is_(None),
+        )
         .first()
     )
     if exam is None:
@@ -135,7 +139,12 @@ def list_available_exams(
     student: Student = Depends(get_current_student),
     db: Session = Depends(get_db),
 ) -> list[StudentExamSummary]:
-    exams = db.query(Exam).filter(Exam.status == "active").order_by(Exam.id).all()
+    exams = (
+        db.query(Exam)
+        .filter(Exam.status == "active", Exam.voided_at.is_(None))
+        .order_by(Exam.id)
+        .all()
+    )
     sessions_by_exam = {
         s.exam_id: s
         for s in db.query(ExamSession).filter(ExamSession.student_id == student.id).all()

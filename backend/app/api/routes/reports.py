@@ -83,7 +83,12 @@ def get_session_case_report(
     event_rows = (
         db.query(MonitoringEvent, Evidence.id.label("evidence_id"))
         .outerjoin(Evidence, Evidence.event_id == MonitoringEvent.id)
-        .filter(MonitoringEvent.session_id == session_id)
+        .filter(
+            MonitoringEvent.session_id == session_id,
+            # A case report is a disciplinary document: a violation
+            # withdrawn from the record must not appear in it.
+            MonitoringEvent.voided_at.is_(None),
+        )
         .order_by(MonitoringEvent.detected_at, MonitoringEvent.id)
         .all()
     )
@@ -215,6 +220,7 @@ def _roster_query(
                 case((MonitoringEvent.status == "PENDING_REVIEW", 1), else_=0)
             ).label("pending_events"),
         )
+        .filter(MonitoringEvent.voided_at.is_(None))
         .group_by(MonitoringEvent.session_id)
         .subquery()
     )

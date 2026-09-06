@@ -67,6 +67,7 @@ def list_exams(db: Session = Depends(get_db)) -> list[ExamResponse]:
     rows = (
         db.query(Exam, func.count(Question.id))
         .outerjoin(Question, Question.exam_id == Exam.id)
+        .filter(Exam.voided_at.is_(None))
         .group_by(Exam.id)
         .order_by(Exam.id)
         .all()

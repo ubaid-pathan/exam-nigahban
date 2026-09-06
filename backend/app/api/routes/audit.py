@@ -54,6 +54,11 @@ def list_audit_log(
         .join(Exam, Exam.id == ExamSession.exam_id)
     )
 
+    # A decision about a voided violation is withdrawn along with it: the
+    # decision row survives, but showing it would surface a violation that
+    # has been removed from view everywhere else.
+    query = query.filter(MonitoringEvent.voided_at.is_(None))
+
     if action is not None:
         query = query.filter(AdminAction.action == action)
     # Narrows the log to the decisions taken on one student's exam session,

@@ -305,6 +305,10 @@ def list_monitoring_events(
         .join(Student, Student.id == ExamSession.student_id)
         .join(Exam, Exam.id == ExamSession.exam_id)
         .outerjoin(Evidence, Evidence.event_id == MonitoringEvent.id)
+        # Voided violations are withdrawn from the review queue. They are
+        # not deleted -- see app/api/routes/void.py -- but they must not
+        # appear anywhere an administrator acts on them.
+        .filter(MonitoringEvent.voided_at.is_(None))
     )
 
     if event_status is not None:
@@ -391,7 +395,9 @@ def list_monitoring_sessions(
     Cost is two queries regardless of page size: one grouped aggregate, and
     one per-type breakdown scoped to the session ids on the current page.
     """
-    filters = []
+    # Applied to both the aggregate and the per-type breakdown below, so
+    # a voided violation is excluded from the counts as well as the rows.
+    filters = [MonitoringEvent.voided_at.is_(None)]
     if event_status is not None:
         filters.append(MonitoringEvent.status == event_status)
     if severity is not None:

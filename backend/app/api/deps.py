@@ -56,3 +56,20 @@ def require_student(current_user: User = Depends(get_current_user)) -> User:
             detail="Student access required",
         )
     return current_user
+
+
+def require_system_admin(current_user: User = Depends(require_admin)) -> User:
+    """Restricts an endpoint to the protected system administrator.
+
+    Layered on require_admin rather than replacing it, so the account is
+    always an administrator first and every existing admin check keeps
+    applying. Used for actions that remove records from the visible
+    record -- see app/api/routes/void.py, which additionally requires the
+    account's password to be re-entered.
+    """
+    if not current_user.is_system_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="System administrator access required",
+        )
+    return current_user
