@@ -293,7 +293,7 @@ Baseline rules:
 | LOOKING_AWAY | >3 sec | 3 | >=0.75 | Medium |
 | FACE_ABSENT | >3 sec | 1 | Configurable | High |
 | MULTIPLE_FACES | >2 sec | 1 | Configurable | High |
-| MOBILE_PHONE | approximately 1 sec | 1 | >=0.40 | High |
+| MOBILE_PHONE | approximately 0.5 sec | 1 | >=0.40 | High |
 
 These values are baseline MVP configuration.
 

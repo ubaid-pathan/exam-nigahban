@@ -62,7 +62,16 @@ export const MONITORING_EVENT_TYPES = Object.freeze(Object.keys(MONITORING_RULES
 // hand passing over the phone -- discarded an otherwise solid one-second
 // sighting. Persistence, not the confidence bar, is what filters noise.
 export const MOBILE_PHONE_RULE = {
-  minDurationSec: 1,
+  // Lowered from 1s so a phone that is only glanced at is still caught.
+  //
+  // Duration is measured from the FIRST detecting frame, and the YOLOX
+  // loop runs every YOLOX_DETECTION_INTERVAL_MS (200ms), so this is really
+  // a frame count: 1s required six consecutive detections, 0.5s requires
+  // four (0ms, 200, 400, 600). Persistence therefore still does its job as
+  // the noise filter -- four consecutive frames is a real sighting, not a
+  // flicker -- which matters because the confidence bar is now 0.4 rather
+  // than 0.8 and can no longer carry that job alone.
+  minDurationSec: 0.5,
   requiredOccurrences: 1,
   confidenceThreshold: 0.4,
   severity: 'high',

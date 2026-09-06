@@ -73,7 +73,11 @@ DEFAULT_MONITORING_RULES = [
     },
     {
         "event_type": "MOBILE_PHONE",
-        "min_duration_seconds": 1.0,
+        # Must match MOBILE_PHONE_RULE.minDurationSec in
+        # frontend/src/monitoring/constants.js: the browser will not emit
+        # below its own bar, and a higher value here would reject whatever
+        # it does emit with a 422.
+        "min_duration_seconds": 0.5,
         "required_occurrences": 1,
         # Must match MOBILE_PHONE_RULE in frontend/src/monitoring/constants.js:
         # the browser emits an event only above its own bar, and this row is
