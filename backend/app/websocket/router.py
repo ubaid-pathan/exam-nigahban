@@ -11,8 +11,13 @@ from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.websocket.authentication import WebSocketAuthError, authenticate_admin_websocket
+from app.websocket.authentication import (
+    WebSocketAuthError,
+    authenticate_admin_websocket,
+    authenticate_student_session_websocket,
+)
 from app.websocket.manager import manager
+from app.websocket.session_manager import session_manager
 
 router = APIRouter()
 
@@ -35,3 +40,31 @@ async def admin_alerts(websocket: WebSocket, db: Session = Depends(get_db)) -> N
             await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket)
+
+
+@router.websocket("/ws/student/sessions/{session_id}")
+async def student_session_updates(
+    websocket: WebSocket, session_id: int, db: Session = Depends(get_db)
+) -> None:
+    """Real-time nudges for one student's own exam session.
+
+    Exists so an invigilator's pause or cancellation reaches the candidate
+    immediately instead of on their next poll. The channel never carries
+    enforcement state -- only "re-read your session" -- so the student
+    client always applies enforcement from the authoritative API response
+    (see app/websocket/session_manager.py).
+    """
+    try:
+        await authenticate_student_session_websocket(websocket, session_id, db)
+    except WebSocketAuthError as exc:
+        await websocket.close(code=exc.code, reason=exc.reason)
+        return
+
+    await session_manager.connect(session_id, websocket)
+    try:
+        while True:
+            # Server-to-client only; the receive exists purely to detect
+            # disconnects, exactly as in the admin channel above.
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        session_manager.disconnect(session_id, websocket)

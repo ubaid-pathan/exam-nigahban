@@ -10,6 +10,8 @@ import {
 } from '../../api/studentExams'
 import { getErrorMessage, getStatusCode } from '../../utils/apiError'
 import { postMonitoringEvent } from '../../api/monitoring'
+import { connectStudentSessionSocket } from '../../api/studentSessionSocket'
+import { TOKEN_KEY } from '../../api/client'
 import LoadingState from '../../components/LoadingState'
 import ErrorState from '../../components/ErrorState'
 import ExamTimer from '../../components/ExamTimer'
@@ -20,7 +22,11 @@ import MonitoringStatusPanel from '../../monitoring/MonitoringStatusPanel'
 import { useFaceMonitoring } from '../../monitoring/useFaceMonitoring'
 import { useMobilePhoneMonitoring } from '../../monitoring/useMobilePhoneMonitoring'
 
-const RESYNC_INTERVAL_MS = 20000
+// Fallback only: the live session channel (api/studentSessionSocket.js)
+// normally delivers an invigilator's pause or cancellation in well under a
+// second. This poll exists for when that socket is down -- shortened from
+// 20s so the worst case without it is tolerable rather than alarming.
+const RESYNC_INTERVAL_MS = 8000
 const OPTIONS = [
   { key: 'A', field: 'option_a' },
   { key: 'B', field: 'option_b' },
@@ -212,6 +218,22 @@ export default function TakeExamPage() {
     return () => clearInterval(interval)
   }, [sessionId, resync])
 
+  // Live enforcement channel. The server only ever nudges ("your session
+  // changed"), so this re-reads the session and applies the result through
+  // the same resync() the polling fallback uses -- one code path for
+  // enforcement, and a stray frame can never fake a pause.
+  useEffect(() => {
+    if (!sessionId || locked) return undefined
+
+    const socket = connectStudentSessionSocket({
+      sessionId,
+      token: localStorage.getItem(TOKEN_KEY),
+      onSessionUpdate: () => resync(),
+    })
+
+    return () => socket?.close()
+  }, [sessionId, locked, resync])
+
   // Ticks the pause countdown once per second while a block is in force.
   // When it reaches zero the server-side block has expired too (the
   // backend filters on blocked_until), so one final resync clears the
@@ -325,16 +347,32 @@ export default function TakeExamPage() {
         )}
       </div>
 
+      {/* A cancelled, expired or submitted session ends the exam, so this
+          is a blocking overlay rather than an inline notice -- the paper
+          must not stay visible and clickable underneath. The candidate
+          reads why before the screen changes, which matters if they later
+          contest the decision. */}
       {locked && (
-        <div className="alert alert-warning" role="alert">
-          {lockReason}{' '}
-          <button
-            type="button"
-            className="btn btn-sm btn-warning ms-2"
-            onClick={() => navigate(`/student/exams/${examId}/result`, { replace: true })}
-          >
-            Continue
-          </button>
+        <div className="modal-backdrop-manual" role="alertdialog" aria-modal="true">
+          <div className="modal-dialog" style={{ margin: 0, maxWidth: 'min(460px, 92vw)' }}>
+            <div className="modal-content">
+              <div className="modal-header">
+                <h2 className="modal-title h5 mb-0">Examination Ended</h2>
+              </div>
+              <div className="modal-body">
+                <p className="mb-0">{lockReason}</p>
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => navigate(`/student/exams/${examId}/result`, { replace: true })}
+                >
+                  Continue
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

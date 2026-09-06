@@ -66,3 +66,68 @@ async def authenticate_admin_websocket(websocket: WebSocket, db: Session) -> Use
         )
 
     return user
+
+
+async def authenticate_student_session_websocket(
+    websocket: WebSocket, session_id: int, db: Session
+) -> User:
+    """Authenticates a student's connection to ONE of their exam sessions.
+
+    Mirrors authenticate_admin_websocket's checks (valid signature, not
+    expired, active account) but requires the student role, and adds the
+    ownership check that matters most here: a student may only watch a
+    session belonging to their own student profile. Without it, any
+    authenticated student could subscribe to another candidate's session
+    and learn when that candidate is paused or cancelled.
+
+    Ownership is resolved through the Student profile row rather than the
+    User id, matching how every student exam route scopes its queries (see
+    app/api/routes/student_exams.py::get_current_student).
+    """
+    # Imported here rather than at module scope to keep this module's
+    # existing import surface (User only) unchanged for the admin path.
+    from app.db.models import ExamSession, Student
+
+    token = websocket.query_params.get("token")
+    if not token:
+        raise WebSocketAuthError(
+            status.WS_1008_POLICY_VIOLATION, "Missing authentication token"
+        )
+
+    try:
+        payload = decode_access_token(token)
+    except jwt.PyJWTError:
+        raise WebSocketAuthError(
+            status.WS_1008_POLICY_VIOLATION, "Invalid or expired token"
+        )
+
+    user = db.query(User).filter(User.username == payload.get("sub")).first()
+
+    if user is None or not user.status:
+        raise WebSocketAuthError(
+            status.WS_1008_POLICY_VIOLATION, "Invalid or expired token"
+        )
+
+    if user.role != "student":
+        raise WebSocketAuthError(
+            status.WS_1008_POLICY_VIOLATION, "Student access required"
+        )
+
+    student = db.query(Student).filter(Student.user_id == user.id).first()
+    if student is None:
+        raise WebSocketAuthError(
+            status.WS_1008_POLICY_VIOLATION, "Student profile not found"
+        )
+
+    owns_session = (
+        db.query(ExamSession)
+        .filter(ExamSession.id == session_id, ExamSession.student_id == student.id)
+        .first()
+        is not None
+    )
+    if not owns_session:
+        raise WebSocketAuthError(
+            status.WS_1008_POLICY_VIOLATION, "Exam session not found"
+        )
+
+    return user

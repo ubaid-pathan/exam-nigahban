@@ -21,6 +21,7 @@ from app.schemas.enforcement import (
     EnforcementCreateRequest,
 )
 from app.websocket.manager import manager as websocket_manager
+from app.websocket.session_manager import session_manager
 
 logger = logging.getLogger(__name__)
 
@@ -118,6 +119,27 @@ async def _broadcast_enforcement_action(row: EnforcementAction) -> None:
         )
 
 
+async def _notify_student_session(session_id: int) -> None:
+    """Best-effort nudge telling the affected candidate to re-read their
+    session, so a pause or cancellation shows up immediately instead of on
+    their next poll.
+
+    Deliberately carries no enforcement detail: the student client applies
+    enforcement only from the authoritative GET /api/student/sessions/{id}
+    response, so this cannot put anyone into a state the API did not grant.
+    Like _broadcast_enforcement_action, it runs after the row is committed
+    and never affects the HTTP response -- the student's polling fallback
+    still delivers the change if this fails.
+    """
+    try:
+        await session_manager.notify_session(session_id)
+    except Exception:
+        logger.exception(
+            "Failed to notify student WebSocket clients for session %s",
+            session_id,
+        )
+
+
 @router.post("/actions", response_model=EnforcementActionResponse, status_code=status.HTTP_201_CREATED)
 async def create_enforcement_action(
     payload: EnforcementCreateRequest,
@@ -195,6 +217,7 @@ async def create_enforcement_action(
     db.refresh(row)
 
     await _broadcast_enforcement_action(row)
+    await _notify_student_session(row.session_id)
 
     return _to_response(row, db)
 
@@ -299,7 +322,7 @@ def list_enforcement_actions(
 
 
 @router.post("/actions/{action_id}/lift", response_model=EnforcementActionResponse)
-def lift_enforcement_action(
+async def lift_enforcement_action(
     action_id: int,
     db: Session = Depends(get_db),
 ) -> EnforcementActionResponse:
@@ -336,5 +359,10 @@ def lift_enforcement_action(
     row.status = "LIFTED"
     db.commit()
     db.refresh(row)
+
+    # An early lift restores the candidate's write access, so they must be
+    # told at once rather than sitting behind a pause overlay that is no
+    # longer in force.
+    await _notify_student_session(row.session_id)
 
     return _to_response(row, db)
