@@ -54,6 +54,14 @@ ENV/
 ai/**/models/
 ai/**/model_cache/
 ai/**/weights/
+# The YOLOX-Nano phone-detection model is a SHIPPED FRONTEND ASSET, not a
+# training artifact: the browser fetches it at /models/yolox-nano-phone.onnx
+# (see frontend/src/monitoring/objectDetection/constants.js). The *.onnx
+# rule above would exclude it, so a fresh clone or a Vercel build would
+# produce a frontend whose phone detection 404s at runtime -- silently,
+# with no build error. It must be tracked.
+!frontend/public/models/
+!frontend/public/models/**
 .cache/
 
 # Evidence & Runtime Data
