@@ -1,641 +1,319 @@
+<div align="center">
+
 # Exam Nigahban
 
-## AI-Assisted Online Examination Monitoring & Evidence Generation Platform
+### AI-Assisted Online Examination Monitoring & Evidence Platform
 
-Exam Nigahban is a secure web-based examination platform designed to support online examinations through real-time, AI-assisted monitoring and evidence generation.
+*Nigahban* (نگہبان) — Urdu for **guardian**, *the one who keeps watch*.
 
-The system monitors predefined examination conditions such as prolonged head movement, face absence, multiple faces, and mobile phone presence. When configured monitoring rules are satisfied, the system generates structured evidence and alerts an authorized administrator for human review.
+[![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://exam-nigahban.vercel.app)
+[![API](https://img.shields.io/badge/API-online-blue)](https://exam-nigahban-api.onrender.com/health)
+[![Tests](https://img.shields.io/badge/tests-716%20passing-success)]()
+[![License](https://img.shields.io/badge/license-educational-lightgrey)]()
 
-> **Important:** Exam Nigahban provides AI-assisted monitoring and evidence generation. It does not autonomously determine that a student has cheated. Final decisions remain with an authorized administrator.
+**[Live System](https://exam-nigahban.vercel.app) · [API Docs](https://exam-nigahban-api.onrender.com/docs) · [Health](https://exam-nigahban-api.onrender.com/health)**
+
+</div>
 
 ---
 
-# Project Status
+## The problem, and the position this system takes
 
-**Current Phase:** Feature complete for the MVP scope; in polish and demo preparation
+Remote examinations created a supervision gap, and most of what filled it
+went too far: continuous video recording, opaque risk scores, and software
+that tells an institution a student cheated.
 
-**Target:** Hackathon MVP
+Exam Nigahban takes the opposite position. It watches for a small set of
+**observable conditions** — a face that leaves the frame, a second face, a
+sustained head turn, a phone in view — and when one persists long enough to
+matter, it captures a single still frame and puts it in front of a human
+being.
 
-**Primary Development Agent:** Claude Code
+> ### The system never decides that a student cheated.
+>
+> It detects conditions, generates evidence, and alerts an administrator.
+> Every determination of misconduct is made by a named person, recorded
+> against their name, at a recorded moment. The word *cheating* appears
+> nowhere in the interface — and a test suite enforces that.
+
+Three consequences follow from that position, and they shape the entire
+architecture:
+
+| Principle | How it is enforced |
+|---|---|
+| **Video never leaves the browser** | All inference runs client-side. The server receives events and one still image, never a stream. |
+| **The AI proposes, a human disposes** | No event can reach a disciplinary outcome without an administrator confirming it first. |
+| **Every decision is attributable** | The audit trail is append-only. A reversal is a new row, never an edit. |
+
+---
+
+## What it does
+
+<table>
+<tr><td width="33%" valign="top">
+
+### 🎓 For students
+
+Sign in, accept terms, pass a camera readiness check, and sit the exam.
+A live status panel shows exactly what is being monitored — no hidden
+watching. Answers persist as you go; the timer is enforced server-side,
+so a closed laptop does not buy extra minutes.
+
+</td><td width="33%" valign="top">
+
+### 🛡️ For administrators
+
+A live dashboard with a notification bell that fills as alerts arrive over
+WebSocket. Open an alert, see the captured frame beside the rule that
+fired, and decide: **Confirm** or **Dismiss**. Escalate proportionately
+when warranted. Generate a case report.
+
+</td><td width="33%" valign="top">
+
+### ⚙️ For the institution
+
+Reports per student, per session, per program and per section — printable,
+and exportable to CSV. A complete audit history. A protected system
+administrator account that no one, including itself, can delete or
+deactivate.
+
+</td></tr>
+</table>
+
+---
+
+## How monitoring actually works
+
+The interesting engineering is not the detection — it is everything built
+to stop the detection from being believed too easily.
+
+```mermaid
+flowchart TD
+    A[Webcam · browser only] --> B[MediaPipe Face Landmarker]
+    A --> C[YOLOX-Nano · Web Worker]
+    B -->|face count · head pose| D{Temporal Rule Engine}
+    C -->|phone bounding boxes| D
+    D -->|"duration + occurrences + minimum confidence<br/>across the whole episode"| E[Monitoring Event]
+    E --> F[Single still frame captured]
+    F --> G[FastAPI]
+    G --> H{Server-side re-validation<br/>against monitoring_rules}
+    H -->|fails its rule| I[Rejected]
+    H -->|satisfies its rule| J[(Database)]
+    J --> K[WebSocket alert]
+    K --> L[Administrator review]
+    L --> M[Confirm / Dismiss · recorded to audit]
+```
+
+### Three gates, not one
+
+A single suspicious frame proves nothing — lighting flickers, a hand passes
+over the camera, someone glances at the door. So a detection must survive
+three independent filters before an administrator ever sees it:
+
+1. **Per-frame confidence** — the detector's own threshold, applied at decode time.
+2. **Temporal persistence** — the rule engine tracks the *minimum* confidence
+   observed across the entire episode, not the peak. One strong frame in a
+   weak sequence cannot carry an event through.
+3. **Server-side re-validation** — the backend independently re-checks every
+   incoming event against the `monitoring_rules` table. **An event that does
+   not satisfy its configured rule is rejected.** The API cannot be used to
+   inject fabricated events, even with a valid student token.
+
+### Baseline rules
+
+Stored in the database, configurable at runtime, mirrored in
+`frontend/src/monitoring/constants.js`.
+
+| Activity | Min. duration | Occurrences | Confidence | Severity |
+|---|:---:|:---:|:---:|:---:|
+| `HEAD_LEFT` | 3 s | ×3 | ≥ 0.75 | Medium |
+| `HEAD_RIGHT` | 3 s | ×3 | ≥ 0.75 | Medium |
+| `HEAD_UP` | 3 s | ×3 | ≥ 0.75 | Medium |
+| `HEAD_DOWN` | 3 s | ×3 | ≥ 0.75 | Medium |
+| `LOOKING_AWAY` | 3 s | ×3 | ≥ 0.75 | Medium |
+| `FACE_ABSENT` | 3 s | ×1 | ≥ 0.50 | **High** |
+| `MULTIPLE_FACES` | 2 s | ×1 | ≥ 0.50 | **High** |
+| `MOBILE_PHONE` | 0.5 s | ×1 | ≥ 0.40 | **High** |
+
+**Why phone detection is tuned differently.** The confidence bar sits at
+0.40 rather than 0.80 deliberately. Because the engine compares against the
+*minimum* confidence across an episode, a high bar meant one motion-blurred
+frame discarded an otherwise solid sighting. Persistence does the filtering
+instead: at a 200 ms detection cadence, 0.5 s requires **four consecutive
+detections** — a real sighting, not a flicker. The frame is letterboxed
+rather than cropped, so a phone is caught anywhere in view, including
+partially out of frame.
+
+---
+
+## Evidence and enforcement
+
+**Evidence** is one downsized still frame, captured only when a rule fires —
+never on a timer, never continuously. Storage is abstracted behind a single
+module with local-filesystem and S3-compatible backends (Cloudflare R2, AWS
+S3, MinIO). Capture is strictly best-effort: a storage failure can never
+cause the monitoring event itself to be lost.
+
+**Enforcement** is a proportionate ladder, reachable only *after* a human has
+confirmed the evidence:
+
+```
+BLOCK  ──────────►  CANCEL_EXAM  ──────────►  UFM_CASE
+timed pause,        session voided,           formal Unfair Means
+liftable            score 0, terminal         case, terminal
+```
+
+Blocks are enforced server-side on **every** student write path — not in the
+interface — and reach the candidate in real time over a dedicated session
+channel.
+
+**Voiding, not deleting.** The system administrator can void an event or an
+exam with a stated reason and a password re-confirmation. Voided rows become
+tombstones: excluded from every list and report, still present for the audit
+trail, and refused outright if an active enforcement action depends on them.
+Nothing in this system is ever truly deleted.
+
+---
+
+## Technology
+
+<table>
+<tr><th align="left">Frontend</th><td>
+
+React 19 · Vite 8 · Bootstrap 5.3 · React Router 7 · Axios · native WebSocket API · MediaDevices / `getUserMedia()`
+
+</td></tr>
+<tr><th align="left">Computer vision</th><td>
+
+MediaPipe Face Landmarker (face presence, count, head pose) · YOLOX-Nano ONNX via `onnxruntime-web`, running in a **Web Worker** so inference never blocks the exam UI
+
+</td></tr>
+<tr><th align="left">Backend</th><td>
+
+Python 3.12 · FastAPI · SQLAlchemy · Pydantic v2 · PyJWT · passlib/bcrypt · boto3 · Uvicorn / Gunicorn
+
+</td></tr>
+<tr><th align="left">Data</th><td>
+
+MySQL (development) · PostgreSQL (production) — migrations are dialect-portable, compiling column types from the models themselves
+
+</td></tr>
+<tr><th align="left">Quality</th><td>
+
+pytest · Vitest · oxlint · structured JSON logging · an external deployment verifier (`check_deployment.py`)
+
+</td></tr>
+<tr><th align="left">Deployment</th><td>
+
+Vercel (frontend) · Render (API, Blueprint-defined) · Neon (PostgreSQL)
+
+</td></tr>
+</table>
+
+**Deliberately absent:** Redis, Tailwind, Redux, Next.js, jQuery, message
+queues, microservices, Kubernetes. None was needed, and each would have made
+the system harder for a small team to maintain and for a judge to read.
+
+---
+
+## Architecture
+
+```mermaid
+flowchart LR
+    subgraph Browser["🖥️ Student Browser"]
+        V[Webcam] --> AI[MediaPipe + YOLOX]
+        AI --> RE[Temporal Rule Engine]
+        EX[Exam Interface]
+    end
+
+    subgraph API["⚡ FastAPI"]
+        AUTH[Auth · JWT · RBAC]
+        MON[Monitoring · re-validation]
+        EV[Evidence Service]
+        ENF[Enforcement]
+        REP[Reports]
+        WS[WebSocket Hub]
+    end
+
+    subgraph Data["🗄️ Storage"]
+        DB[(PostgreSQL / MySQL<br/>11 tables)]
+        OBJ[(Filesystem / S3)]
+    end
+
+    subgraph Admin["🛡️ Administrator"]
+        DASH[Live Dashboard]
+        REV[Evidence Review]
+        AUD[Audit History]
+    end
+
+    RE -->|events + 1 still frame| MON
+    EX --> AUTH
+    MON --> DB
+    EV --> OBJ
+    MON --> WS
+    WS -->|real-time alerts| DASH
+    DASH --> REV --> ENF --> DB
+    ENF -.->|block notice| Browser
+    REP --> AUD
+```
+
+**Scale of the implementation**
 
 | | |
 |---|---|
-| Backend tests | 345 passing |
-| Frontend tests | 252 passing |
-| HTTP endpoints | 44, plus 2 WebSocket channels |
-| Database tables | 11 |
+| HTTP endpoints | **51**, plus 2 authenticated WebSocket channels |
+| Database tables | **11** |
+| Backend tests | **448** passing |
+| Frontend tests | **268** passing |
+| Admin screens | 12 |
+| Student screens | 7 |
 
-## Delivered
+### Database
 
-**Authentication and accounts** — bcrypt password hashing, JWT sessions,
-role-based authorization, and administrator-created accounts only. Students
-cannot self-register. Deactivating an account revokes access on the next
-request.
+`users` · `students` · `exams` · `questions` · `exam_sessions` ·
+`student_answers` · `monitoring_rules` · `monitoring_events` · `evidence` ·
+`admin_actions` · `enforcement_actions`
 
-**Examination management** — exam and question CRUD, publication status,
-student examination workflow, timed sessions with server-side expiry, answer
-persistence, submission and scoring.
-
-**AI-assisted monitoring** — MediaPipe Face Landmarker for face presence,
-face count and head pose; YOLOX-Nano running in a Web Worker for
-mobile-phone detection. All inference runs locally in the student's browser;
-no webcam video is ever transmitted.
-
-**Temporal rule engine** — duration, occurrence and confidence thresholds
-applied in the browser, then **re-validated server-side** against the
-`monitoring_rules` table. An event that does not satisfy its configured rule
-is rejected, so the API cannot be used to inject fabricated events.
-
-**Evidence** — a single downsized still frame captured only when a rule is
-satisfied, never on a timer. Storage is abstracted behind one module with
-local-filesystem and S3-compatible backends (Cloudflare R2, AWS S3, MinIO).
-Evidence capture is strictly best-effort: it can never cause the monitoring
-event itself to be lost.
-
-**Real-time administration** — authenticated WebSocket alerts to the admin
-dashboard, a notification queue in the header showing the live review
-backlog, monitoring events grouped into one combined record per student
-session, and an evidence review workflow.
-
-**Enforcement** — a proportionate ladder of administrator actions (timed
-block, exam cancellation, formal Unfair Means case), reachable only after a
-human has confirmed the evidence. Blocks are enforced server-side on every
-student write path, and reach the candidate in real time over a dedicated
-session channel.
-
-**Audit** — every administrator decision is recorded as an append-only row
-attributable to a named administrator at a named moment. No decision is ever
-edited or deleted; a reversal is recorded as a new entry.
+```
+User ──┬── Student ── ExamSession ──┬── StudentAnswer
+       └── Administrator            ├── MonitoringEvent ──┬── Evidence
+                                    │                     └── AdminAction
+Exam ──┬── Question                 └── EnforcementAction
+       └── ExamSession
+```
 
 ---
 
-# Project Objectives
+## Security
 
-- Provide a controlled online examination environment.
-- Prevent unauthorized student account creation.
-- Allow administrators to manage student and administrator accounts.
-- Verify camera readiness before an examination begins.
-- Monitor predefined examination conditions in real time.
-- Apply temporal and confidence-based monitoring rules.
-- Generate structured evidence when monitoring rules are triggered.
-- Deliver monitoring alerts to administrators in real time.
-- Provide evidence review and administrative action workflows.
-- Maintain an auditable record of monitoring events and administrative decisions.
-- Keep the system lightweight, explainable, and suitable for hackathon demonstration.
+- **No self-registration.** Only an administrator creates accounts — student or admin.
+- **Passwords** are bcrypt-hashed, never stored or logged in any recoverable form. A test suite asserts that no password, hash, or token ever reaches a log line.
+- **JWT sessions** with role-based authorization on every route. Deactivating an account revokes access on the very next request.
+- **A protected system administrator** that cannot be deleted, edited or deactivated — by any other administrator, or by itself. There is always exactly one account that cannot be locked out.
+- **Step-up authentication** for destructive operations, with per-user lockout after 5 failed attempts. The lockout holds even against the correct password.
+- **WebSockets are authenticated** on connect; the student channel carries nudges only, never state.
+- **Evidence access** is restricted to authenticated administrators. Reports never expose an evidence file path.
 
 ---
 
-# Core Features
+## Getting started
 
-## Student
+**Prerequisites:** Python 3.12+, Node.js 20+, MySQL 8 (or PostgreSQL), Git, a Chromium-based browser.
 
-- Secure login
-- Administrator-created accounts
-- Terms & Conditions acceptance
-- Mandatory camera permission
-- Pre-exam system and camera verification
-- Examination instructions
-- Online examination
-- Question navigation
-- Examination timer
-- Answer submission
-- Examination status/result
-- AI-assisted monitoring during examination
+### Backend
 
----
-
-## AI-Assisted Monitoring
-
-Exam Nigahban monitors the following predefined conditions:
-
-- Head left detection
-- Head right detection
-- Head up detection
-- Head down detection
-- Looking-away detection
-- Face absence detection
-- Multiple-face detection
-- Mobile phone detection
-- Temporal duration evaluation
-- Occurrence-based rule evaluation
-- Confidence-based filtering
-- Monitoring event generation
-- Evidence image generation
-
-The system uses temporal rules rather than relying only on individual frames in order to reduce false positives.
-
----
-
-## Administrator
-
-Administrators can:
-
-- Securely log in
-- Create student accounts
-- Manage student accounts
-- Create administrator accounts
-- Manage administrator accounts
-- Create and manage examinations
-- Create and manage questions
-- View examination sessions
-- Monitor active examinations
-- Receive real-time monitoring alerts
-- View monitoring events
-- Review evidence
-- Confirm or dismiss monitoring events
-- Record administrative actions
-- View audit history
-
----
-
-# Known Limitations
-
-Stated deliberately. A system that knows where its own boundary sits is
-easier to trust than one that claims to have none.
-
-**Monitoring runs in the student's browser, by design.** This is what keeps
-webcam video off the network and makes the privacy guarantee real, but it
-also means the server only learns what the client reports. The server
-re-validates every incoming event against its configured rule, so fabricated
-or under-threshold events are rejected — but it cannot detect events that
-are never sent. A determined student who disables the monitoring script
-produces no events and currently looks the same as one who behaved.
-
-*Planned mitigation:* a liveness heartbeat. The exam client would report
-periodically that its camera and detectors are running, and the dashboard
-would flag any active session that has gone quiet. This converts silence
-from invisible into visible without moving inference to the server.
-
-**The camera requirement is enforced in the interface, not the API.** The
-pre-exam readiness check gates the Begin Exam button on camera permission,
-but the session-start endpoint does not independently verify it. The same
-heartbeat above is the intended fix.
-
-**Deliberately out of scope for the MVP**, and listed so their absence is
-understood as a decision rather than an oversight: request rate limiting,
-schema migration tooling (Alembic), a CI job exercising the production
-database engine, and short-lived ticket exchange for WebSocket
-authentication. Each is understood and none is required to demonstrate the
-system.
-
----
-
-# Monitoring Philosophy
-
-Exam Nigahban follows a **human-in-the-loop** monitoring approach.
-
-The system:
-
-```text
-Detects
-   ↓
-Evaluates
-   ↓
-Generates Evidence
-   ↓
-Alerts Administrator
-   ↓
-Human Review
-   ↓
-Administrative Decision
-
-The AI system does not make a final determination of academic misconduct.
-
-Monitoring events should therefore be described using terms such as:
-
-Monitoring Alert
-Suspicious Activity
-Evidence Generated
-Pending Review
-Admin Review Required
-Evidence Confirmed
-Evidence Dismissed
-
-The system should not present an AI-generated event as automatically confirmed cheating.
-
-Technology Stack
-Frontend
-React
-Vite
-JavaScript (ES2022+)
-Bootstrap 5.3
-CSS3
-Axios
-React Router
-Native WebSocket API
-Browser MediaDevices API
-AI / Computer Vision
-MediaPipe Face Landmarker
-Ultralytics YOLO
-Browser-side processing where practical
-Mobile phone detection as the initial object-detection scope
-Face Monitoring
-
-MediaPipe is used for:
-
-Face detection
-Facial landmarks
-Head-pose estimation
-Head direction
-Looking-away analysis
-Object Detection
-
-YOLO is initially used only for:
-
-Mobile phone detection
-
-The MVP does not require:
-
-Smartwatch detection
-Digital camera detection
-Laptop detection
-Tablet detection
-Other prohibited-device categories
-Backend
-Python
-FastAPI
-SQLAlchemy
-Pydantic
-WebSocket
-Database
-MySQL
-Development Tools
-Visual Studio Code
-Git
-GitHub
-Claude Code
-Postman
-Google Chrome
-High-Level Architecture
-                    Student Browser
-                           |
-                           | Authentication
-                           v
-              +---------------------------+
-              |      React Frontend       |
-              |                           |
-              |   Exam Interface          |
-              |   Camera Interface        |
-              |   MediaPipe                |
-              |   YOLO                     |
-              |   Monitoring Engine        |
-              +-------------+-------------+
-                            |
-                            | Events / Evidence Metadata
-                            v
-              +---------------------------+
-              |      FastAPI Backend       |
-              |                           |
-              | Authentication             |
-              | Exam Services              |
-              | Monitoring Services        |
-              | Evidence Services          |
-              | WebSocket Services         |
-              +-------------+-------------+
-                            |
-                            v
-              +---------------------------+
-              |           MySQL            |
-              |                           |
-              | Users                       |
-              | Students                    |
-              | Exams                       |
-              | Questions                   |
-              | Sessions                    |
-              | Answers                     |
-              | Monitoring Rules            |
-              | Monitoring Events           |
-              | Evidence Metadata           |
-              | Admin Actions               |
-              +-------------+-------------+
-                            |
-                            | Real-Time Alerts
-                            v
-              +---------------------------+
-              |     Administrator UI       |
-              |                           |
-              | Dashboard                  |
-              | Live Monitoring            |
-              | Evidence Center             |
-              | Evidence Review            |
-              | Administrative Actions     |
-              | Audit History              |
-              +---------------------------+
-AI Monitoring Architecture
-Webcam
-   |
-   v
-Browser AI Processing
-   |
-   +----------------------------+
-   |                            |
-   v                            v
-MediaPipe                    YOLO
-   |                            |
-   |                            |
-Head / Face Analysis       Mobile Phone
-   |                        Detection
-   |                            |
-   +-------------+--------------+
-                 |
-                 v
-        Monitoring Rule Engine
-                 |
-                 v
-       Temporal Rule Evaluation
-                 |
-                 v
-        Monitoring Event
-                 |
-                 v
-         Evidence Generation
-                 |
-                 v
-          FastAPI Backend
-                 |
-                 +------------------+
-                 |                  |
-                 v                  v
-              MySQL             WebSocket
-                                    |
-                                    v
-                            Admin Dashboard
-Monitoring Rules
-
-The baseline MVP uses configurable monitoring rules.
-
-Activity	Minimum Duration	Required Occurrences	Confidence	Severity
-HEAD_LEFT	>3 sec	3	>=0.75	Medium
-HEAD_RIGHT	>3 sec	3	>=0.75	Medium
-HEAD_UP	>3 sec	3	>=0.75	Medium
-HEAD_DOWN	>3 sec	3	>=0.75	Medium
-LOOKING_AWAY	>3 sec	3	>=0.75	Medium
-FACE_ABSENT	>3 sec	1	Configurable	High
-MULTIPLE_FACES	>2 sec	1	Configurable	High
-MOBILE_PHONE	~0.5 sec	1	>=0.40	High
-
-These values are baseline configuration values and may be calibrated during testing.
-
-Evidence Generation
-
-When a configured monitoring rule is satisfied, the system generates a monitoring event and supporting evidence.
-
-Evidence may include:
-
-Evidence ID
-Monitoring event ID
-Student ID
-Examination ID
-Session ID
-Activity type
-Confidence
-Duration
-Occurrence count
-Severity
-Detection timestamp
-Evidence image
-Evidence metadata
-
-Example:
-
-Event ID: EVT-2026-000145
-Student ID: STU-1024
-Exam ID: DEMO-EXAM-01
-Activity: HEAD_RIGHT
-Severity: Medium
-Confidence: 87.4%
-Duration: 4.2 seconds
-Occurrence: 3/3
-Status: PENDING_REVIEW
-
-The system does not continuously record or store webcam video.
-
-Evidence is generated only when configured monitoring conditions are satisfied.
-
-Real-Time Monitoring
-
-The system uses WebSocket communication for real-time administrator notifications.
-
-Student Browser
-      |
-      v
-AI Monitoring
-      |
-      v
-Monitoring Event
-      |
-      v
-FastAPI
-      |
-      v
-WebSocket
-      |
-      v
-Admin Dashboard
-
-Administrators can receive:
-
-Monitoring alerts
-Evidence notifications
-Relevant monitoring status updates
-
-WebSocket is not used to continuously stream webcam video to the backend.
-
-Student Examination Workflow
-Student Login
-      |
-      v
-Terms & Conditions
-      |
-      v
-Accept Terms
-      |
-      v
-Camera Permission
-      |
-      v
-Pre-Exam System Check
-      |
-      v
-Exam Instructions
-      |
-      v
-Start Examination
-      |
-      v
-AI-Assisted Monitoring
-      |
-      v
-Answer Questions
-      |
-      v
-Submit Examination
-      |
-      v
-Submission Confirmation
-      |
-      v
-Result / Status
-Administrator Workflow
-Administrator Login
-        |
-        v
-Dashboard
-        |
-        v
-Create Student
-        |
-        v
-Create Examination
-        |
-        v
-Add Questions
-        |
-        v
-Monitor Active Examinations
-        |
-        v
-Receive Monitoring Alert
-        |
-        v
-Open Evidence
-        |
-        v
-Review Evidence
-        |
-        +------> Confirm
-        |
-        +------> Dismiss
-        |
-        v
-Administrative Action
-        |
-        v
-Audit Record
-Database Structure
-
-The core database includes:
-
-users
-students
-exams
-questions
-exam_sessions
-student_answers
-monitoring_rules
-monitoring_events
-evidence
-admin_actions
-system_logs
-Main Relationships
-User
- |
- +---- Student
- |
- +---- Administrator
-
-Exam
- |
- +---- Questions
- |
- +---- Exam Sessions
-          |
-          +---- Student Answers
-          |
-          +---- Monitoring Events
-                    |
-                    +---- Evidence
-                    |
-                    +---- Admin Actions
-Project Structure
-
-The project follows a modular structure:
-
-Exam-Nigahban/
-│
-├── backend/
-│   ├── app/
-│   │   ├── core/
-│   │   ├── db/
-│   │   ├── models/
-│   │   ├── schemas/
-│   │   ├── services/
-│   │   ├── websocket/
-│   │   └── main.py
-│   │
-│   └── tests/
-│
-├── frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   ├── pages/
-│   │   ├── layouts/
-│   │   ├── services/
-│   │   ├── hooks/
-│   │   ├── utils/
-│   │   └── App.jsx
-│   │
-│   └── public/
-│
-├── ai/
-│   ├── face/
-│   ├── object/
-│   ├── monitoring/
-│   └── rules/
-│
-├── database/
-│   ├── schema/
-│   ├── seeds/
-│   └── migrations/
-│
-├── docs/
-│
-├── evidence/
-│
-├── tests/
-│
-├── .env.example
-├── .gitignore
-└── README.md
-
-The exact repository structure may evolve during implementation while preserving the project's architectural boundaries.
-
-Installation & Setup
-Prerequisites
-
-Install the following:
-
-Python 3.12+
-Node.js
-npm
-MySQL
-Git
-Google Chrome
-Visual Studio Code
-Backend Setup
-
-Navigate to the backend directory:
-
+```bash
 cd backend
-
-Create a Python virtual environment:
-
 python -m venv .venv
-
-Activate the environment on Windows:
-
-.venv\Scripts\activate
-
-Install backend dependencies:
-
+.venv\Scripts\activate          # Windows  ·  source .venv/bin/activate on macOS/Linux
 pip install -r requirements.txt
+```
 
-Configure the environment variables using .env.
+Create `backend/.env` from the template — see `backend/.env.example` for the
+annotated version:
 
-Example:
-
+```ini
 APP_NAME=Exam Nigahban API
-APP_VERSION=1.0.0
 ENVIRONMENT=development
 
 DB_HOST=localhost
@@ -644,340 +322,125 @@ DB_USER=root
 DB_PASSWORD=your_database_password
 DB_NAME=exam_nigahban
 
-SECRET_KEY=your_secure_secret_key
-
+SECRET_KEY=generate_a_long_random_value
 CORS_ORIGINS=http://localhost:5173
-
-Evidence image storage (see backend/.env.example for the full guide):
 
 EVIDENCE_BACKEND=local
 EVIDENCE_STORAGE_ROOT=evidence
+```
 
-Set EVIDENCE_BACKEND=s3 with the bucket/credential variables to store evidence images in durable S3-compatible object storage (e.g. Cloudflare R2) instead of the filesystem, which is ephemeral on hosts like Render. After switching, run backend/migrate_evidence_to_s3.py once to upload legacy database-embedded images.
+> **Never commit the real `.env`.** For durable evidence storage on an
+> ephemeral host such as Render, set `EVIDENCE_BACKEND=s3` with the bucket
+> and credential variables, then run `backend/migrate_evidence_to_s3.py`
+> once to move any legacy database-embedded images.
 
-Never commit the real .env file.
+Create the database and start the API:
 
-Database Setup
-
-Create the MySQL database:
-
-CREATE DATABASE exam_nigahban;
-
-Configure the database credentials in .env.
-
-Run the backend initialization process according to the current project setup.
-
-Verify the database connection before starting development.
-
-Start Backend
-
-From the backend directory:
-
+```bash
+mysql -u root -p -e "CREATE DATABASE exam_nigahban;"
 uvicorn app.main:app --reload
+```
 
-The API should be available at:
+| | |
+|---|---|
+| API | http://127.0.0.1:8000 |
+| Health | http://127.0.0.1:8000/health |
+| Swagger | http://127.0.0.1:8000/docs |
 
-http://127.0.0.1:8000
+### Frontend
 
-Health endpoint:
-
-http://127.0.0.1:8000/health
-
-Swagger documentation:
-
-http://127.0.0.1:8000/docs
-Frontend Setup
-
-Navigate to the frontend directory:
-
+```bash
 cd frontend
-
-Install dependencies:
-
 npm install
-
-Start the development server:
-
 npm run dev
+```
 
-The frontend should normally be available at:
+Available at **http://localhost:5173**.
 
-http://localhost:5173
-Environment & Security
+### Tests
 
-Sensitive configuration must never be committed to Git.
+```bash
+cd backend && pytest -q          # 448 tests
+cd frontend && npm test          # 268 tests
+```
 
-The project should use:
+---
 
-.env
+## Known limitations
 
-for local secrets and:
+Stated deliberately. A system that knows where its own boundary sits is
+easier to trust than one that claims to have none.
 
-.env.example
+**Monitoring runs in the student's browser, by design.** This is what keeps
+webcam video off the network and makes the privacy guarantee real, but it
+also means the server only learns what the client reports. The server
+re-validates every incoming event against its configured rule, so fabricated
+or under-threshold events are rejected — but it cannot detect events that are
+*never sent*. A determined student who disables the monitoring script
+produces no events and currently looks the same as one who behaved.
 
-for safe configuration templates.
+> *Planned mitigation:* a liveness heartbeat. The exam client would report
+> periodically that its camera and detectors are running, and the dashboard
+> would flag any active session that has gone quiet. This converts silence
+> from invisible into visible without moving inference to the server.
 
-Never commit:
+**The camera requirement is enforced in the interface, not the API.** The
+pre-exam readiness check gates the Begin Exam button on camera permission,
+but the session-start endpoint does not independently verify it. The same
+heartbeat above is the intended fix.
 
-Database passwords
-API keys
-Secret keys
-Authentication tokens
-Private credentials
-Sensitive evidence
+**Detection quality depends on conditions** — lighting, camera placement,
+occlusion, and hardware. This is precisely why every event is treated as
+*evidence requiring review* rather than as a finding, and why thresholds live
+in the database rather than in the code.
 
-Verify .gitignore before every public repository release.
+**Deliberately out of scope for the MVP**, listed so their absence reads as a
+decision rather than an oversight: request rate limiting, Alembic migration
+tooling, a CI job exercising the production database engine, short-lived
+ticket exchange for WebSocket authentication, and facial identity
+verification. Each is understood; none is required to demonstrate the system.
 
-Development Workflow
+---
 
-Development follows an incremental workflow:
+## Scope
 
-Requirement
-    |
-    v
-Design
-    |
-    v
-Implementation
-    |
-    v
-Testing
-    |
-    v
-Manual Verification
-    |
-    v
-Git Checkpoint
+<table>
+<tr><td valign="top" width="50%">
 
-This README is the project's reference documentation: it covers the
-architecture, the monitoring rules, the setup, and the limitations the
-system is known to have.
+**✅ In scope**
 
-Development Principles
+Secure authentication · administrator-controlled accounts · student and admin
+management · exam and question management · timed sessions · answer
+persistence and scoring · camera readiness check · AI-assisted monitoring ·
+head pose · face absence · multiple faces · phone detection · temporal rules ·
+evidence capture and storage · real-time alerts · evidence review ·
+proportionate enforcement · voiding with audit · reporting and CSV export ·
+append-only audit history · structured logging · responsive UI
 
-The project follows these principles:
+</td><td valign="top" width="50%">
 
-Keep the architecture lightweight.
-Avoid unnecessary dependencies.
-Avoid over-engineering.
-Reuse existing working components.
-Implement features incrementally.
-Test each major feature.
-Keep security requirements mandatory.
-Keep monitoring explainable.
-Keep human review in the decision loop.
-Do not continuously upload webcam video.
-Do not expose sensitive student information.
-Do not modify unrelated functionality.
-Do not introduce architectural changes without justification.
-Testing
+**❌ Out of scope**
 
-The project should include:
+Autonomous determinations of misconduct · continuous video recording ·
+smartwatch, camera, laptop or tablet detection · biometric identity
+recognition · microservices · Kubernetes · Redis · distributed
+infrastructure · a mobile application
 
-Unit Testing
-Authentication
-Authorization
-Examination services
-Question services
-Session services
-Monitoring rules
-Temporal rule engine
-Evidence services
-Integration Testing
-Authentication APIs
-Examination APIs
-Session APIs
-Monitoring APIs
-Evidence APIs
-WebSocket communication
-End-to-End Testing
-
-The complete workflow should be tested:
-
-Admin Login
-    ↓
-Create Student
-    ↓
-Create Examination
-    ↓
-Add Questions
-    ↓
-Student Login
-    ↓
-Accept Terms
-    ↓
-Camera Permission
-    ↓
-System Check
-    ↓
-Start Exam
-    ↓
-AI Monitoring
-    ↓
-Monitoring Event
-    ↓
-Evidence Generation
-    ↓
-Admin Alert
-    ↓
-Evidence Review
-    ↓
-Exam Submission
-    ↓
-Result
-Current Development Priorities
-
-Development should proceed in the following order:
-
-Foundation verification
-Authentication & authorization
-Examination management
-Student examination workflow
-AI monitoring
-Temporal monitoring rules
-Evidence generation
-Real-time administrator monitoring
-Evidence review
-Audit logging
-UI/UX refinement
-Security and performance review
-End-to-end testing
-Hackathon demo preparation
-
-MVP Scope
-Included
-Secure authentication
-Administrator-controlled accounts
-Student management
-Administrator management
-Examination management
-Question management
-Examination sessions
-Student answers
-Camera permission
-Pre-exam system check
-AI-assisted monitoring
-Head-pose monitoring
-Looking-away detection
-Face absence detection
-Multiple-face detection
-Mobile phone detection
-Temporal monitoring rules
-Evidence generation
-Evidence storage
-Real-time administrator alerts
-Evidence review
-Administrative actions
-Audit logging
-Professional responsive UI
-Not Included in the MVP
-Autonomous cheating decisions
-Continuous webcam recording
-Smartwatch detection
-Digital camera detection
-Laptop detection
-Tablet detection
-Facial identity recognition
-Advanced biometric identification
-Microservice architecture
-Kubernetes
-Redis
-Large-scale distributed infrastructure
-Mobile application
-Unnecessary third-party integrations
+</td></tr>
+</table>
 
 Additional features require explicit approval before implementation.
 
-Known Limitations
+---
 
-The MVP is an AI-assisted monitoring system rather than a perfect automated proctoring solution.
+<div align="center">
 
-AI predictions may be affected by:
+### Built for the AI National / Alibaba Cloud AI Hackathon Pakistan 2026
 
-Lighting conditions
-Camera quality
-Camera positioning
-Occlusion
-Background conditions
-Model confidence
-Browser performance
-Hardware limitations
+**Detect · Evaluate · Evidence · Alert · Review · Decide**
 
-Therefore, monitoring events are treated as evidence requiring human review.
+*The machine watches. The human decides.*
 
-Thresholds should be calibrated using realistic test scenarios before the final demonstration.
+Developed for educational, research and hackathon purposes.
 
-Documentation
-
-The project documentation includes:
-
-Document	Purpose
-README.md	Project overview, architecture, setup and usage
-Hackathon Demonstration
-
-The final demonstration should show the complete system flow:
-
-Administrator
-    ↓
-Create Student
-    ↓
-Create Demo Examination
-    ↓
-Add Questions
-    ↓
-Student Login
-    ↓
-Terms & Conditions
-    ↓
-Camera Permission
-    ↓
-System Readiness Check
-    ↓
-Start Examination
-    ↓
-AI-Assisted Monitoring
-    ↓
-Trigger Monitoring Condition
-    ↓
-Generate Evidence
-    ↓
-Real-Time Administrator Alert
-    ↓
-Admin Reviews Evidence
-    ↓
-Confirm / Dismiss
-    ↓
-Audit Action
-    ↓
-Submit Examination
-    ↓
-Display Result / Status
-
-The demonstration should emphasize:
-
-AI-Assisted Monitoring + Explainable Evidence + Real-Time Alerts + Human Review
-
-Final Objective
-
-Exam Nigahban aims to provide a practical and professional online examination platform that combines:
-
-Secure examination management
-Browser-based AI monitoring
-Temporal event evaluation
-Evidence generation
-Real-time administrator alerts
-Human review
-Auditability
-Professional user experience
-
-The system is designed to demonstrate how AI can assist examination monitoring while keeping final decisions under authorized human control.
-
-License
-
-This project is developed for educational, research, and hackathon purposes.
-
-Project
-
-Exam Nigahban
-
-AI-Assisted Online Examination Monitoring & Evidence Generation Platform
+</div>
