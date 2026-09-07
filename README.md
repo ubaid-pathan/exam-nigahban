@@ -2,9 +2,11 @@
 
 # Exam Nigahban
 
-### AI-Assisted Online Examination Monitoring & Evidence Platform
+### AI-Assisted Examination Monitoring and Evidence Management System
 
 *Nigahban* (نگہبان) — Urdu for **guardian**, *the one who keeps watch*.
+
+**For universities, educational institutions, and testing organizations.**
 
 [![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://exam-nigahban.vercel.app)
 [![API](https://img.shields.io/badge/API-online-blue)](https://exam-nigahban-api.onrender.com/health)
@@ -17,17 +19,36 @@
 
 ---
 
+## About
+
+Exam Nigahban is an AI-assisted examination monitoring and evidence
+management system designed for universities, educational institutions, and
+testing organizations. It strengthens examination integrity by identifying
+**predefined monitoring events** during controlled examinations, including
+mobile-phone presence, face absence, multiple faces, unusual head movement,
+and looking away.
+
+Detection results are evaluated using **confidence, duration, occurrence,
+and temporal rules** to reduce false and repeated alerts. When a monitoring
+event meets the configured criteria, the system generates a **structured
+record** containing the event type, timestamp, detection details, and
+supporting evidence. Authorized administrators can then review these events
+and evidence, make the final decision, and record the outcome through an
+**auditable workflow**.
+
+---
+
 ## The problem, and the position this system takes
 
-Remote examinations created a supervision gap, and most of what filled it
-went too far: continuous video recording, opaque risk scores, and software
-that tells an institution a student cheated.
+Remote and large-scale examinations created a supervision gap, and much of
+what filled it went too far: continuous video recording, opaque risk scores,
+and software that tells an institution a student cheated.
 
-Exam Nigahban takes the opposite position. It watches for a small set of
-**observable conditions** — a face that leaves the frame, a second face, a
-sustained head turn, a phone in view — and when one persists long enough to
-matter, it captures a single still frame and puts it in front of a human
-being.
+Exam Nigahban takes the opposite position. It watches for a small, declared
+set of **observable conditions** — a face that leaves the frame, a second
+face, a sustained head turn, a phone in view — and when one persists long
+enough to matter, it captures a single still frame and puts it in front of a
+human being.
 
 > ### The system never decides that a student cheated.
 >
@@ -435,7 +456,12 @@ Additional features require explicit approval before implementation.
 
 <div align="center">
 
-### Built for the AI National / Alibaba Cloud AI Hackathon Pakistan 2026
+**Exam Nigahban**
+AI-Assisted Examination Monitoring and Evidence Management System
+
+Built for the AI National / Alibaba Cloud AI Hackathon Pakistan 2026
+
+---
 
 **Detect · Evaluate · Evidence · Alert · Review · Decide**
 
