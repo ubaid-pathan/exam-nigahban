@@ -1,1 +1,21 @@
-web: gunicorn app.main:app --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
+# --workers 1 is REQUIRED, not a performance choice.
+#
+# Three pieces of state live in the API process's memory and are not shared
+# between workers:
+#
+#   app/websocket/manager.py         connected admin sockets
+#   app/websocket/session_manager.py connected student sockets, per session
+#   app/core/step_up.py              failed password-confirmation counters
+#
+# Gunicorn's worker count defaults to the WEB_CONCURRENCY environment
+# variable (gunicorn/config.py), which a host may set on its own. With more
+# than one worker, a monitoring event created on worker A would only reach
+# the admins connected to worker A, an invigilator's pause would only reach
+# a student attached to the same worker, and the step-up lockout would allow
+# five attempts PER worker. Each of those fails silently and intermittently
+# -- the features appear to work, then do not.
+#
+# Pinning this makes the deployment match what the code assumes. Sharing
+# that state (a database table or a pub/sub channel) is what would be needed
+# before scaling past one worker.
+web: gunicorn app.main:app --worker-class uvicorn.workers.UvicornWorker --workers 1 --bind 0.0.0.0:$PORT
