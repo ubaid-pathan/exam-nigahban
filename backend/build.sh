@@ -11,7 +11,7 @@ python init_db.py
 
 # Add columns that create_all cannot add to an existing table. Idempotent
 # and dialect-agnostic, so it is safe on every deploy including the first.
-python migrate_add_system_admin.py
+python migrate_add_user_columns.py
 python migrate_add_void_columns.py
 
 # Report any drift between the live schema and the models. Read-only, and
