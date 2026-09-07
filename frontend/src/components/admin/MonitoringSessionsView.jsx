@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { listMonitoringEvents, listMonitoringSessions } from '../../api/monitoring'
 import { getErrorMessage } from '../../utils/apiError'
+import { useAuth } from '../../context/AuthContext'
 import {
   eventStatusBadgeClass,
   eventStatusLabel,
@@ -57,6 +58,7 @@ export default function MonitoringSessionsView({ filters, pageSize }) {
   // kept afterwards, so collapsing and reopening a row costs nothing.
   const [expanded, setExpanded] = useState({})
   const [selectedEvent, setSelectedEvent] = useState(null)
+  const { user } = useAuth()
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -345,6 +347,7 @@ export default function MonitoringSessionsView({ filters, pageSize }) {
             refreshAfterReview()
           }}
           onRefresh={refreshAfterReview}
+          canVoid={Boolean(user?.is_system_admin)}
         />
       )}
     </>

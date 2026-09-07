@@ -8,6 +8,8 @@ import {
   enforcementStatusLabel,
 } from '../utils/enforcementStatus'
 import { getErrorMessage } from '../utils/apiError'
+import { voidMonitoringEvent } from '../api/void'
+import VoidConfirmDialog from './admin/VoidConfirmDialog'
 import {
   eventStatusBadgeClass,
   eventStatusLabel,
@@ -38,7 +40,17 @@ import ConfirmModal from './ConfirmModal'
 //
 // `onReviewed` means "finished with this event -- close and refetch";
 // `onRefresh` means "the list is stale, refetch it but leave me open".
-export default function EvidenceReviewPanel({ event, onClose, onReviewed, onRefresh }) {
+export default function EvidenceReviewPanel({
+  event,
+  onClose,
+  onReviewed,
+  onRefresh,
+  // Whether to offer the void control. Passed in rather than read from
+  // auth context so this component stays renderable in isolation; the
+  // API refuses the action to anyone but the system administrator
+  // regardless, so this only decides whether the button is shown.
+  canVoid = false,
+}) {
   const [imageUrl, setImageUrl] = useState(null)
   const [imageLoading, setImageLoading] = useState(true)
   const [imageError, setImageError] = useState('')
@@ -69,6 +81,8 @@ export default function EvidenceReviewPanel({ event, onClose, onReviewed, onRefr
   // stacking a second action on top of it.
   const [priorActions, setPriorActions] = useState([])
   const [priorActionsError, setPriorActionsError] = useState('')
+
+  const [voidOpen, setVoidOpen] = useState(false)
 
   const effectiveStatus = reviewedStatus ?? event.status
   const isConfirmed = effectiveStatus === 'CONFIRMED'
@@ -416,6 +430,16 @@ export default function EvidenceReviewPanel({ event, onClose, onReviewed, onRefr
             )}
           </div>
           <div className="modal-footer">
+            {canVoid && (
+              <button
+                type="button"
+                className="btn btn-outline-danger me-auto"
+                onClick={() => setVoidOpen(true)}
+                disabled={submitting || enforcing}
+              >
+                Void Violation
+              </button>
+            )}
             {/* After a decision is recorded in this panel, "Confirm" would
                 only append a duplicate audit row saying the same thing, so
                 it is replaced by Done. Mark Ignored stays available: it is
@@ -478,6 +502,26 @@ export default function EvidenceReviewPanel({ event, onClose, onReviewed, onRefr
             Reason: <em>{enforcementReason.trim()}</em>
           </p>
         </ConfirmModal>
+      )}
+
+      {voidOpen && (
+        <VoidConfirmDialog
+          title="Void This Violation?"
+          recordLabel={`${eventTypeLabel(event.event_type)} for ${event.student_full_name}`}
+          consequences={[
+            'It leaves the review queue, the dashboard counts and every report.',
+            'Its evidence image is withdrawn with it.',
+            'Any review decision recorded against it stops being listed.',
+          ]}
+          onConfirm={(payload) => voidMonitoringEvent(event.id, payload)}
+          onCancel={() => setVoidOpen(false)}
+          onVoided={() => {
+            setVoidOpen(false)
+            // Closes the panel and refetches: the violation no longer
+            // exists as far as every list is concerned.
+            onReviewed(null)
+          }}
+        />
       )}
 
       {pendingAction === 'UFM_CASE' && (

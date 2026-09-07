@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { listMonitoringEvents } from '../../api/monitoring'
 import { getErrorMessage } from '../../utils/apiError'
+import { useAuth } from '../../context/AuthContext'
 import {
   EVENT_STATUS_LABELS,
   eventStatusBadgeClass,
@@ -42,6 +43,7 @@ export default function MonitoringEventsPage() {
   const [error, setError] = useState('')
   const [selectedEvent, setSelectedEvent] = useState(null)
   const [view, setView] = useState(VIEW_SESSIONS)
+  const { user } = useAuth()
 
   const load = useCallback(async () => {
     // Only the flat view fetches here; the grouped view owns its own
@@ -283,6 +285,7 @@ export default function MonitoringEventsPage() {
           // Refetches the table while leaving the panel open, so a
           // confirmed event can be acted on without reopening it.
           onRefresh={load}
+          canVoid={Boolean(user?.is_system_admin)}
         />
       )}
     </div>

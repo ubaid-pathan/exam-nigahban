@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { ADMIN_NAV_ITEMS } from './adminNavItems'
+import { useAuth } from '../../context/AuthContext'
 import { CloseIcon } from './icons'
 
 // Purely presentational: branding and the nav links. Owns no auth or
@@ -9,7 +10,16 @@ import { CloseIcon } from './icons'
 // area (username/Admin badge/Logout) lives only in the header now
 // (AdminLayout.jsx) -- this avoided a duplicate logout control.
 export default function AdminSidebar({ open, onClose, onNavigate }) {
+  const { user } = useAuth()
   const navLinkClass = ({ isActive }) => `admin-nav-link${isActive ? ' active' : ''}`
+
+  // A link the account cannot use is hidden rather than shown and
+  // refused. The route and the API enforce this independently -- this
+  // only avoids leading an ordinary administrator to a page that turns
+  // them away.
+  const navItems = ADMIN_NAV_ITEMS.filter(
+    (item) => !item.systemAdminOnly || user?.is_system_admin,
+  )
 
   return (
     <>
@@ -35,7 +45,7 @@ export default function AdminSidebar({ open, onClose, onNavigate }) {
         </div>
 
         <nav className="admin-sidebar__nav" aria-label="Admin navigation">
-          {ADMIN_NAV_ITEMS.map(({ to, end, label, Icon }) => (
+          {navItems.map(({ to, end, label, Icon }) => (
             <NavLink key={to} to={to} end={end} className={navLinkClass} onClick={onNavigate}>
               <Icon width={18} height={18} />
               <span>{label}</span>

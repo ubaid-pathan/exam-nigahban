@@ -5,6 +5,7 @@ import {
   FileIcon,
   MonitoringIcon,
   ShieldAlertIcon,
+  TrashIcon,
   UsersIcon,
 } from './icons'
 
@@ -26,6 +27,10 @@ export const ADMIN_NAV_ITEMS = [
   { to: '/admin/users', label: 'Users', Icon: UsersIcon },
   { to: '/admin/reports', label: 'Reports', Icon: FileIcon },
   { to: '/admin/audit', label: 'Audit History', Icon: AuditIcon },
+  // Only the system administrator can void a record or read the list of
+  // what has been voided, so the link is hidden from everyone else
+  // rather than leading them to a page that refuses them.
+  { to: '/admin/voided', label: 'Voided Records', Icon: TrashIcon, systemAdminOnly: true },
 ]
 
 // Resolves the header's current-page title from the route pathname. Exact

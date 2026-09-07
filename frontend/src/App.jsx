@@ -10,6 +10,7 @@ import MonitoringEventsPage from './pages/admin/MonitoringEventsPage'
 import EnforcementActionsPage from './pages/admin/EnforcementActionsPage'
 import SessionReportPage from './pages/admin/SessionReportPage'
 import RosterReportPage from './pages/admin/RosterReportPage'
+import VoidedRecordsPage from './pages/admin/VoidedRecordsPage'
 import AuditHistoryPage from './pages/admin/AuditHistoryPage'
 import ExamManagementPage from './pages/admin/ExamManagementPage'
 import ExamQuestionsPage from './pages/admin/ExamQuestionsPage'
@@ -50,6 +51,7 @@ export default function App() {
             <Route path="/admin/students" element={<StudentManagementPage />} />
             <Route path="/admin/administrators" element={<AdminManagementPage />} />
             <Route path="/admin/audit" element={<AuditHistoryPage />} />
+            <Route path="/admin/voided" element={<VoidedRecordsPage />} />
           </Route>
         </Route>
 
