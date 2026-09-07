@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import require_admin
 from app.db.models import AdminAction, Evidence, MonitoringEvent, User
+from app.core.logging import log_event
 from app.db.session import get_db
 from app.schemas.admin_action import (
     AdminActionResponse,
@@ -155,6 +156,15 @@ def review_evidence(
 
     db.refresh(event)
     db.refresh(admin_action)
+
+    log_event(
+        "evidence.reviewed",
+        evidence_id=evidence.id,
+        event_id=event.id,
+        session_id=event.session_id,
+        admin=current_admin.username,
+        decision=payload.action,
+    )
 
     return EvidenceReviewResponse(
         evidence_id=evidence.id,

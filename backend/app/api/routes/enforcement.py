@@ -14,6 +14,7 @@ from app.db.models import (
     Student,
     User,
 )
+from app.core.logging import log_event
 from app.db.session import get_db
 from app.schemas.enforcement import (
     EnforcementActionListResponse,
@@ -216,6 +217,16 @@ async def create_enforcement_action(
     db.commit()
     db.refresh(row)
 
+    log_event(
+        "enforcement.action.created",
+        action_id=row.id,
+        session_id=row.session_id,
+        student_id=row.student_id,
+        admin=current_admin.username,
+        action_type=row.action_type,
+        blocked_until=row.blocked_until,
+    )
+
     await _broadcast_enforcement_action(row)
     await _notify_student_session(row.session_id)
 
@@ -359,6 +370,12 @@ async def lift_enforcement_action(
     row.status = "LIFTED"
     db.commit()
     db.refresh(row)
+
+    log_event(
+        "enforcement.action.lifted",
+        action_id=row.id,
+        session_id=row.session_id,
+    )
 
     # An early lift restores the candidate's write access, so they must be
     # told at once rather than sitting behind a pause overlay that is no

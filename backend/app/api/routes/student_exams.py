@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import require_student
 from app.api.routes.enforcement import get_active_block
 from app.db.models import Exam, ExamSession, Question, Student, StudentAnswer, User
+from app.core.logging import log_event
 from app.db.session import get_db
 from app.schemas.enforcement import ActiveBlockInfo
 from app.schemas.student_exam import (
@@ -76,6 +77,11 @@ def _sync_expiry(session_row: ExamSession, exam: Exam, db: Session) -> ExamSessi
         session_row.ended_at = deadline
         db.commit()
         db.refresh(session_row)
+        log_event(
+            "exam.session.expired",
+            session_id=session_row.id,
+            exam_id=session_row.exam_id,
+        )
 
     return session_row
 
@@ -228,6 +234,12 @@ def start_exam(
     db.add(session_row)
     db.commit()
     db.refresh(session_row)
+    log_event(
+        "exam.session.started",
+        session_id=session_row.id,
+        exam_id=exam.id,
+        student_id=student.student_id,
+    )
     return _to_session_response(session_row, exam, db)
 
 
@@ -385,6 +397,16 @@ def submit_exam(
     session_row.score = score
     db.commit()
     db.refresh(session_row)
+
+    log_event(
+        "exam.session.submitted",
+        session_id=session_row.id,
+        exam_id=session_row.exam_id,
+        student_id=student.student_id,
+        score=score,
+        answered=answered_count,
+        total_questions=total_questions,
+    )
 
     return SubmitResponse(
         id=session_row.id,

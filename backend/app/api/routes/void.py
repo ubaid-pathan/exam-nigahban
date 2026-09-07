@@ -31,6 +31,7 @@ from app.db.models import (
     MonitoringEvent,
     User,
 )
+from app.core.logging import log_event
 from app.db.session import get_db
 from app.schemas.void import (
     VoidedRecordListResponse,
@@ -132,10 +133,13 @@ def void_monitoring_event(
 
     # A security-relevant event: something has left the visible audit
     # trail. The reason is recorded on the row; only the fact is logged.
-    logger.warning(
-        "Monitoring event %s voided by system administrator %s",
-        event_id,
-        current_admin.username,
+    log_event(
+        "record.voided",
+        level=logging.WARNING,
+        kind="monitoring_event",
+        record_id=event_id,
+        session_id=event.session_id,
+        admin=current_admin.username,
     )
 
     return {
@@ -195,8 +199,12 @@ def void_exam(
     exam.void_reason = payload.reason.strip()
     db.commit()
 
-    logger.warning(
-        "Exam %s voided by system administrator %s", exam_id, current_admin.username
+    log_event(
+        "record.voided",
+        level=logging.WARNING,
+        kind="exam",
+        record_id=exam_id,
+        admin=current_admin.username,
     )
 
     return {

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import require_admin
 from app.api.routes.student_exams import get_current_student
 from app.db.models import Evidence, Exam, ExamSession, MonitoringEvent, MonitoringRule, Student
+from app.core.logging import log_event
 from app.db.session import get_db
 from app.schemas.evidence import EvidenceResponse
 from app.schemas.monitoring import (
@@ -163,6 +164,17 @@ async def create_monitoring_event(
     db.commit()
     db.refresh(event)
 
+    log_event(
+        "monitoring.event.recorded",
+        event_id=event.id,
+        session_id=event.session_id,
+        event_type=event.event_type,
+        severity=event.severity,
+        confidence=event.confidence,
+        duration_seconds=event.duration_seconds,
+        source=event.source,
+    )
+
     await _broadcast_monitoring_event(event)
 
     evidence_response = _try_attach_evidence(payload.evidence_image_base64, event, db)
@@ -259,6 +271,13 @@ def _try_attach_evidence(
         db.add(evidence)
         db.commit()
         db.refresh(evidence)
+        log_event(
+            "evidence.captured",
+            evidence_id=evidence.id,
+            event_id=event.id,
+            size_bytes=len(image_bytes),
+            durable_storage=evidence_storage_is_durable(),
+        )
     except Exception:
         db.rollback()
         # The DB row never committed, so the file we just wrote would

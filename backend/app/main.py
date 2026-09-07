@@ -17,7 +17,13 @@ from app.api.routes import (
     void,
 )
 from app.core.config import settings
+from app.core.logging import configure_logging
 from app.websocket import router as websocket_router
+
+# Installed before the app is built so every logger created during import
+# is covered, and so a startup failure is reported in the same format as
+# everything else.
+configure_logging()
 
 app = FastAPI(
     title="Exam Nigahban API",
