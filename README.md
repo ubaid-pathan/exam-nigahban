@@ -596,9 +596,6 @@ Exam-Nigahban/
 │
 ├── .env.example
 ├── .gitignore
-├── CLAUDE.md
-├── PROJECT_SPEC.md
-├── TASKS.md
 └── README.md
 
 The exact repository structure may evolve during implementation while preserving the project's architectural boundaries.
@@ -738,13 +735,7 @@ Development follows an incremental workflow:
 Requirement
     |
     v
-PROJECT_SPEC.md
-    |
-    v
-TASKS.md
-    |
-    v
-Claude Code
+Design
     |
     v
 Implementation
@@ -758,14 +749,9 @@ Manual Verification
     v
 Git Checkpoint
 
-The project uses:
-
-PROJECT_SPEC.md — functional and technical specification
-CLAUDE.md — Claude Code development instructions
-TASKS.md — implementation task tracker
-README.md — project overview and setup documentation
-
-These documents should remain consistent with one another.
+This README is the project's reference documentation: it covers the
+architecture, the monitoring rules, the setup, and the limitations the
+system is known to have.
 
 Development Principles
 
@@ -858,8 +844,6 @@ Security and performance review
 End-to-end testing
 Hackathon demo preparation
 
-See TASKS.md for the detailed implementation checklist.
-
 MVP Scope
 Included
 Secure authentication
@@ -928,10 +912,7 @@ Documentation
 The project documentation includes:
 
 Document	Purpose
-README.md	Project overview, setup and usage
-PROJECT_SPEC.md	Functional and technical specification
-CLAUDE.md	Claude Code development instructions
-TASKS.md	Development task tracker
+README.md	Project overview, architecture, setup and usage
 Hackathon Demonstration
 
 The final demonstration should show the complete system flow:

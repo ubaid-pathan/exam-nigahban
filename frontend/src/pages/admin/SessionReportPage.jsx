@@ -31,7 +31,7 @@ import ErrorState from '../../components/ErrorState'
 // an activity an administrator reviewed and dismissed would misrepresent
 // the record; those still appear in the table, without a picture.
 //
-// Language throughout follows CLAUDE.md section 18: this document records
+// Language throughout is deliberate: this document records
 // that the system flagged an activity and that a named administrator
 // reached a decision about it. It never asserts that a student cheated.
 export default function SessionReportPage() {

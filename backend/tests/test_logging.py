@@ -1,10 +1,15 @@
 """Tests for structured application logging.
 
-Two things are being protected here. That the seven categories CLAUDE.md
-section 20 names actually emit something -- silence on success was the
-original problem, and it is invisible until someone needs the record. And
-that no password, token or key ever reaches a log line, which is the same
-section's other half and the more damaging one to get wrong.
+Two things are being protected here.
+
+First, that all seven categories the project requires actually emit
+something: authentication, API errors, exam session events, monitoring
+events, evidence generation, admin actions and security events. Silence on
+success was the original problem, and it stays invisible until someone
+needs the record.
+
+Second, that no password, token or key ever reaches a log line. That is the
+more damaging of the two to get wrong.
 """
 
 import json
@@ -114,7 +119,7 @@ def test_configure_logging_is_safe_to_call_repeatedly():
 
 
 # ---------------------------------------------------------------------------
-# The categories CLAUDE.md section 20 names
+# The categories the project requires
 # ---------------------------------------------------------------------------
 
 

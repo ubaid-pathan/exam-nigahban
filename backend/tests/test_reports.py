@@ -336,7 +336,7 @@ def test_a_clean_session_produces_an_empty_but_valid_report(
 def test_report_never_asserts_wrongdoing(
     client, admin_headers, db_session, admin_user, session_row
 ):
-    """CLAUDE.md section 18: the system records that an activity was
+    """The system records that an activity was
     flagged and that a human decided about it -- never that a student
     cheated."""
     event = _add_event(db_session, session_row, event_status="CONFIRMED")

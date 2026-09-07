@@ -1,4 +1,4 @@
-// Terminology follows CLAUDE.md's monitoring-language rules: the AI never
+// Terminology follows the project's monitoring-language rules: the AI never
 // confirms cheating, so labels describe review state only ("Pending
 // Review", "Confirmed", "Ignored") -- never "cheating", "cheater", or
 // "guilty" wording of any kind.

@@ -1,6 +1,6 @@
 """Centralized monitoring configuration shared by the event-ingestion API.
 
-Mirrors the baseline temporal-rule table in CLAUDE.md / PROJECT_SPEC.md so
+Mirrors the baseline temporal-rule table documented in the README so
 thresholds are not duplicated across the codebase. The browser-side temporal
 rule engine (frontend/src/monitoring/constants.js) applies these same
 baseline values before an event ever reaches the backend; this module is

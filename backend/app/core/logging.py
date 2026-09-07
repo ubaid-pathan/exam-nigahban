@@ -19,7 +19,8 @@ started, when a socket dropped, when a step-up lockout fired.
 
 Never logged
 ------------
-Passwords, tokens, secret keys, credentials (CLAUDE.md section 20). The
+Passwords, tokens, secret keys, credentials -- never, under any
+condition. The
 helper below takes named fields, so a caller has to go out of its way to
 pass one -- and tests/test_logging.py asserts none appear.
 

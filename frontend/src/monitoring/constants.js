@@ -1,6 +1,6 @@
 // Centralized AI-monitoring configuration for Phase 5 (Face Monitoring).
 //
-// These are the baseline MVP values from CLAUDE.md / PROJECT_SPEC.md. Every
+// These are the baseline MVP values documented in the README. Every
 // threshold used anywhere in the monitoring engine or UI must come from
 // here rather than being hard-coded inline, so recalibration during testing
 // only requires touching this one file.
@@ -31,8 +31,7 @@ export const LOOKING_AWAY_ANGLE_THRESHOLD_DEG = {
   pitch: 22,
 }
 
-// Baseline temporal rules — see CLAUDE.md section 4.5 / PROJECT_SPEC.md
-// section 13. FACE_ABSENT / MULTIPLE_FACES use a "configurable" confidence
+// Baseline temporal rules — see the monitoring-rule table in the README. FACE_ABSENT / MULTIPLE_FACES use a "configurable" confidence
 // threshold per the spec; 0.5 is the MVP default (face-count based
 // conditions are less confidence-sensitive than pose classification).
 export const MONITORING_RULES = {
@@ -54,7 +53,7 @@ export const MONITORING_EVENT_TYPES = Object.freeze(Object.keys(MONITORING_RULES
 // independent createTemporalRuleEngine() instance scoped to only this one
 // rule, so its state never shares a Map (or anything else) with the face
 // engine's. Baseline values are this file's own MOBILE_PHONE row from
-// CLAUDE.md/PROJECT_SPEC.md's temporal-rule table (~1s persistence, 1
+// the README's temporal-rule table (~1s persistence, 1
 // occurrence, High severity). The confidence bar was lowered from the
 // original 0.80: the temporal engine compares this against the MINIMUM
 // confidence observed across the whole episode (see temporalRuleEngine.js

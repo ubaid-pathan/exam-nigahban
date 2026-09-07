@@ -5,7 +5,7 @@
 // matching how the monitoring engine separates its pure logic from its
 // hooks (see monitoring/temporalRuleEngine.js).
 //
-// Terminology follows CLAUDE.md's monitoring-language rules: every label
+// Terminology follows the project's monitoring-language rules: every label
 // below describes the detected activity and its review state only --
 // never "cheating", "cheater", or "guilty" wording of any kind.
 

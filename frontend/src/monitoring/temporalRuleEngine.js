@@ -2,13 +2,13 @@
 // it only knows about plain "raw observation" objects and timestamps, so it
 // can be constructed and driven entirely from unit tests.
 //
-// Responsibility boundary (see PROJECT_SPEC.md section 14):
+// Responsibility boundary:
 //   raw observation  -->  stabilized (debounced) observation  -->  event
 //
 // A single noisy frame must never produce a monitoring event. A condition
 // must hold continuously for its configured minimum duration to count as
 // one "occurrence"; an event is only emitted once the configured number of
-// occurrences has been reached, matching the CLAUDE.md baseline table
+// occurrences has been reached, matching the baseline rule table
 // (e.g. HEAD_RIGHT needs 3 separate >3s occurrences before an event fires).
 
 import { MONITORING_RULES } from './constants'

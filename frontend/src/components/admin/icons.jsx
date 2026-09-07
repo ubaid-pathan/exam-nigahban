@@ -1,6 +1,6 @@
 // Small hand-authored icon set for the admin sidebar/header -- the project
 // has no icon package installed (only plain `bootstrap`, not
-// `bootstrap-icons`), and CLAUDE.md asks to avoid unnecessary dependencies,
+// `bootstrap-icons`), and this project avoids unnecessary dependencies,
 // so these are inline SVGs rather than a new library. All share the same
 // 24x24 viewBox, stroke weight, and currentColor fill so they read as one
 // consistent set at any size the caller applies via className/style.

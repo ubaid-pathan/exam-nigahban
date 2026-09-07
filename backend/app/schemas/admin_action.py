@@ -4,8 +4,8 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict
 
 # Mirrors the two admin decisions MonitoringEvent.status can be moved to
-# from PENDING_REVIEW by a human reviewer (see CLAUDE.md section 18 /
-# PROJECT_SPEC.md: the AI never confirms cheating itself).
+# from PENDING_REVIEW by a human reviewer: automated monitoring flags
+# an activity, and only an administrator ever confirms what it means.
 ReviewAction = Literal["CONFIRMED", "IGNORED"]
 
 

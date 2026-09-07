@@ -855,7 +855,8 @@ body {
 }
 
 /* Severity is encoded as a stripe as well as a badge, so urgency survives
-   for anyone who cannot rely on color alone (CLAUDE.md section 17). */
+   for anyone who cannot rely on color alone -- status is never
+   communicated by color by itself. */
 .notif__stripe {
   flex: 0 0 3px;
   background-color: var(--app-border-strong);
@@ -945,7 +946,7 @@ body {
    ========================================================================== */
 
 /* Triage weight is carried by a left accent as well as the badge, so
-   urgency survives without relying on color alone (CLAUDE.md section 17):
+   urgency survives without relying on color alone:
    the badge text still reads "N pending review" / "All reviewed". */
 .session-card {
   border-left: 4px solid var(--app-border-strong);
@@ -1021,7 +1022,7 @@ body {
 }
 
 /* The AI/human boundary, stated on the document itself so it cannot be
-   read apart from the findings it qualifies (CLAUDE.md section 18). */
+   read apart from the findings it qualifies. */
 .report__notice {
   font-size: 0.8rem;
   line-height: 1.5;

@@ -5,7 +5,7 @@ disciplinary file, so its shape is driven by what has to be defensible
 rather than by what is convenient to query: every flagged activity, the
 evidence behind it, and the named administrator who decided what it meant.
 
-Terminology follows CLAUDE.md section 18 throughout. Nothing here asserts
+Terminology is deliberate throughout: nothing here asserts
 that a student cheated -- the report records that the system flagged an
 activity and that a human reached a decision about it.
 """

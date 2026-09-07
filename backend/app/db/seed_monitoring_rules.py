@@ -1,7 +1,7 @@
 """Seed default AI-monitoring temporal rules.
 
 These values mirror frontend/src/monitoring/constants.js and the baseline
-rule table in CLAUDE.md / PROJECT_SPEC.md.  The seed function is idempotent:
+rule table documented in the README.  The seed function is idempotent:
 run it as many times as you like; existing rows are updated in place and
 missing rows are inserted.
 """

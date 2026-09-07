@@ -1,6 +1,6 @@
 // Labels for admin enforcement actions (see backend
 // app/models/enforcement_action.py and app/schemas/enforcement.py).
-// Terminology follows CLAUDE.md's monitoring-language rules: labels
+// Terminology follows the project's monitoring-language rules: labels
 // describe the action and its state only -- never "cheating", "cheater",
 // or "guilty" wording of any kind.
 

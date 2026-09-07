@@ -1,4 +1,5 @@
-// Displays AI-monitoring status using CLAUDE.md-approved terminology only.
+// Displays AI-monitoring status using the project's monitoring language
+// only: it describes what was observed, never what it means.
 // Never implies an autonomous cheating determination — this is a live
 // system/observation status indicator, not a verdict.
 
